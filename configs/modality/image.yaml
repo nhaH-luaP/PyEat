@@ -1,0 +1,71 @@
+prenet_depth: 4
+prenet_layerdrop: 0
+prenet_dropout: 0
+start_drop_path_rate: 0
+end_drop_path_rate: 0
+
+num_extra_tokens: 0
+init_extra_token_zero: True
+
+mask_noise_std: 0.01
+mask_prob_min: None
+mask_prob: 0.7
+inverse_mask: False
+mask_prob_adjust: 0
+keep_masked_pct: 0
+
+mask_length: 5
+add_masks: False
+remove_masks: False
+mask_dropout: 0.0
+encoder_zero_mask: True
+
+mask_channel_prob: 0.0
+mask_channel_length: 64
+
+ema_local_encoder: False  # used in data2vec_multi
+local_grad_mult: 1.0
+
+use_alibi_encoder: False
+alibi_scale: 1.0
+learned_alibi: False
+alibi_max_pos: None
+learned_alibi_scale: False
+learned_alibi_scale_per_head: False
+learned_alibi_scale_per_layer: False
+
+num_alibi_heads: 12
+model_depth: 17
+
+
+######
+input_size: 224
+in_chans: 1
+patch_size: 16
+embed_dim: 768
+
+alibi_dims: 2
+alibi_distance: "manhattan"
+
+fixed_positions: True
+
+transformer_decoder: False
+enc_dec_transformer: False
+target_length: 1024
+max_length: 768
+
+
+#######
+decoder:
+  decoder_dim: 384
+  decoder_groups: 16
+  decoder_kernel: 5
+  decoder_layers: 5
+  input_dropout: 0.1
+
+  add_positions_masked: False
+  add_positions_all: False
+
+  decoder_residual: True
+  projection_layers: 1
+  projection_ratio: 2.0

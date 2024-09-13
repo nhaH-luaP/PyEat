@@ -1,0 +1,73 @@
+loss_beta: 0
+loss_scale: None
+depth: 12
+
+# standard vision Transformer
+start_drop_path_rate: 0
+end_drop_path_rate: 0
+num_heads: 12
+norm_eps: 1e-6
+norm_affine: True
+encoder_dropout: 0.1
+post_mlp_drop: 0.1
+attention_dropout: 0.1
+activation_dropout: 0.0
+dropout_input: 0.0
+layerdrop: 0.0
+embed_dim: 768
+mlp_ratio: 4
+layer_norm_first: False
+
+# EAT averages all Transformer block output (12 layers in total) 
+average_top_k_layers: 12 # for debugging set to 1
+
+end_of_block_targets: False
+
+# clone batch for multi-mask strategy
+clone_batch: 16
+
+# Normalization for teacher transformer layer output
+layer_norm_target_layer: False
+batch_norm_target_layer: False
+instance_norm_target_layer: False
+instance_norm_targets: False
+layer_norm_targets: False
+
+# EMA settings
+ema_same_dtype: True
+ema_end_decay: 0.9999
+ema_decay: None
+ema_fp32: True
+log_norms: None
+add_missing_params: False
+ema_anneal_end_step: 200
+
+# In EAT, the Transformer encoder and the CNN encoder are both EMA updated
+ema_encoder_only: True
+
+max_update: 200
+
+shared_decoder: None
+
+min_target_var: 0.1
+min_pred_var: 0.01
+
+mae_init: False
+
+seed: 42
+
+skip_ema: False
+
+# d2v_loss is the frame-level loss while cls_loss is the utterance-level loss
+cls_loss: 1
+recon_loss: 0
+d2v_loss: 1
+
+decoder_group: False
+
+# the experiment of using dino loss instead of direct utterance loss (not included in our paper)
+utterance_level: False
+init_center_token_zero: False
+center_exp: 0.9
+softmax_temperature_student: 0.1
+softmax_temperature_teacher: 0.05
