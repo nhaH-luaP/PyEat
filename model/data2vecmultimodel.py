@@ -36,7 +36,7 @@ from .images import (
 logger = logging.getLogger(__name__)
 
 
-class Data2VecMultiModel(L.LightningModule):
+class Data2VecMultiModel(nn.Module):
     def make_modality_encoder(
         self,
         cfg,
@@ -286,14 +286,12 @@ class Data2VecMultiModel(L.LightningModule):
         remove_extra_tokens=True,
         precomputed_mask=None,
     ):
-        feature_extractor = self.modality_encoder
-
         mask_seeds = None
         if id is not None:
             mask_seeds = MaskSeed(seed=self.cfg.seed, update=self.num_updates, ids=id)
 
         # extract (unmasked) features using a CNN encoder
-        extractor_out = feature_extractor(
+        extractor_out = self.modality_encoder(
             source,
             padding_mask,
             mask,
@@ -345,10 +343,10 @@ class Data2VecMultiModel(L.LightningModule):
         # extract features for fine-tuning
         if features_only:
             if remove_extra_tokens:
-                x = x[:, feature_extractor.modality_cfg.num_extra_tokens :]
+                x = x[:, self.modality_encoder.modality_cfg.num_extra_tokens :]
                 if masked_padding_mask is not None:
                     masked_padding_mask = masked_padding_mask[
-                        :, feature_extractor.modality_cfg.num_extra_tokens :
+                        :, self.modality_encoder.modality_cfg.num_extra_tokens :
                     ]
 
             return {
@@ -363,20 +361,19 @@ class Data2VecMultiModel(L.LightningModule):
         if self.shared_decoder is not None:
             dx = self.forward_decoder(
                 x,
-                feature_extractor,
+                self.modality_encoder,
                 self.shared_decoder,
                 encoder_mask,
             )
             xs.append(dx)
-        if feature_extractor.decoder is not None:
+        if self.modality_encoder.decoder is not None:
             dx = self.forward_decoder(
                 x,
-                feature_extractor,
-                feature_extractor.decoder,
+                self.modality_encoder,
+                self.modality_encoder.decoder,
                 encoder_mask,
             )
             xs.append(dx)
-            orig_x = x
 
         assert len(xs) > 0
 
@@ -411,7 +408,7 @@ class Data2VecMultiModel(L.LightningModule):
             if self.cfg.ema_encoder_only:
                 assert target is None
                 ema_input = extractor_out["local_features"]
-                ema_input = feature_extractor.contextualized_features(
+                ema_input = self.modality_encoder.contextualized_features(
                     ema_input.to(dtype=ema_dtype),
                     padding_mask,
                     mask=False,
@@ -420,7 +417,7 @@ class Data2VecMultiModel(L.LightningModule):
                 ema_blocks = tm
             else:
                 ema_blocks = tm.blocks
-                if feature_extractor.modality_cfg.ema_local_encoder:
+                if self.modality_encoder.modality_cfg.ema_local_encoder:
                     inp = (
                         target.to(dtype=ema_dtype)
                         if target is not None
@@ -452,7 +449,7 @@ class Data2VecMultiModel(L.LightningModule):
             # ema_input in shape (batch_size, patch + 1(cls_token), feature_dimension)
             y = []
             ema_x = []
-            extra_tokens = feature_extractor.modality_cfg.num_extra_tokens
+            extra_tokens = self.modality_encoder.modality_cfg.num_extra_tokens
             for i, blk in enumerate(ema_blocks):  
                 ab = ema_alibi_bias
                 if ab is not None and alibi_scale is not None:
@@ -532,7 +529,7 @@ class Data2VecMultiModel(L.LightningModule):
         if self.cfg.recon_loss > 0:
 
             with torch.no_grad():
-                target = feature_extractor.patchify(source)  #(btz,1,512,16*16)
+                target = self.modality_encoder.patchify(source)  #(btz,1,512,16*16)
                 mean = target.mean(dim=-1, keepdim=True)
                 var = target.var(dim=-1, keepdim=True)
                 target = (target - mean) / (var + 1.0e-6) ** 0.5   #(btz,1,512,1)
@@ -595,31 +592,7 @@ class Data2VecMultiModel(L.LightningModule):
             result["ema_decay"] = self.ema.get_decay() * 1000
 
         return result
-######################################################################
 
-
-    def training_step(self, batch, batch_idx):
-        x, _ = batch['input_values'], batch['labels']
-        
-        # Forward Method of MultiModel
-        result = self(x)
-
-        loss = result["losses"]["cls"]
-
-        # Logging
-        self.log_dict({'train_loss': loss.item()})
-
-        # Return Loss for optimization
-        return loss
-    
-
-    def configure_optimizers(self):
-        optimizer = torch.optim.SGD(self.parameters(), lr=1e-1, weight_decay=5e-4, nesterov=True, momentum=0.9)
-        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=200)
-        return [optimizer], [lr_scheduler]
-
-
-######################################################################
 
     def forward_decoder(
         self,

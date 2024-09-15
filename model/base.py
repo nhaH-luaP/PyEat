@@ -126,7 +126,7 @@ class ModalitySpecificEncoder(nn.Module):
             ).normal_(0, self.modality_cfg.mask_noise_std)
 
             x_ = torch.cat([x[:, num_extra:], mask_tokens], dim=1)
-            x = torch.gather(x_.cpu(), dim=1, index=mask_info.ids_restore).to('cuda')
+            x = torch.gather(x_, dim=1, index=mask_info.ids_restore.to(x.device)) # ADDED THE .to(x.device) for debugging purposes
 
             if self.modality_cfg.decoder.add_positions_masked:
                 assert self.fixed_positional_encoder is not None
@@ -384,8 +384,9 @@ class ModalitySpecificEncoder(nn.Module):
         if shape is not None:
             x_unmasked = None
         else:
+            #TODO: The ".to(x.device)" is a current workaround for CUDA error between ids_keep and x
             ids_keep = ids_keep.unsqueeze(-1).expand(-1, -1, D)
-            x_unmasked = torch.gather(x.cpu(), dim=1, index=ids_keep)
+            x_unmasked = torch.gather(x.cpu(), dim=1, index=ids_keep) # ADDED THE .cpu() !!!!!!!!!!!!!!!!!!!!!
 
         mask_info = MaskInfo(
             x_unmasked=x_unmasked,
