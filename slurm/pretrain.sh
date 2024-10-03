@@ -23,4 +23,6 @@ srun python pretrain.py \
     path.model_dir=$MODEL_DIR \
     path.output_dir=$OUTPUT_DIR \
     path.data_dir=$DATA_DIR \
-    random_seed=${seed}
+    random_seed=${seed} \
+    dataset.name=XCL \
+    dataset.num_classes=9,735
