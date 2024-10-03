@@ -33,7 +33,6 @@ def main(args):
     dm = BirdSetDataModule(
         dataset=DatasetConfig(
             data_dir=args.path.data_dir,
-            dataset_name=args.dataset.name,
             hf_path=args.path.hf_path,
             hf_name=args.dataset.name,
             n_workers=args.dataset.num_workers,
@@ -41,24 +40,28 @@ def main(args):
             task=args.task,
             classlimit=500,
             eventlimit=5,
-            sampling_rate=32000,
+            sampling_rate=16000,
         ),
-        loaders=LoadersConfig(train=LoaderConfig(batch_size=16))
+        loaders=LoadersConfig(train=LoaderConfig(batch_size=args.finetune.batch_size))
     )
     dm.prepare_data()
     dm.setup(stage="fit")
 
-    # Initialize Model
+
+    # Initialize Model with potentially pretrained weights
     logging.info(f">>> Initialize Model.")
     backbone = Data2VecMultiModel(args=args)
+    pretrained_weights_path = os.path.join(args.path.model_dir, "pretrained_weights_"+str(args.random_seed)+".pth")
+    if args.finetune.load_pretrained_weights and os.path.exists(pretrained_weights_path):
+        backbone.load_state_dict(torch.load(pretrained_weights_path))
     linear_classifier = torch.nn.Linear(in_features=args.multimodel.embed_dim, out_features=args.dataset.num_classes)
-    model = EATFineTune(model=backbone, linear_classifier=linear_classifier, num_classes=args.dataset.num_classes)
+    model = EATFineTune(model=backbone, linear_classifier=linear_classifier, num_classes=args.dataset.num_classes, args=args)
 
     # Initialize callback for keeping track of metrics
     metrics_callback = MetricsCallback()
 
     # Finetune Model
-    trainer = L.Trainer(max_epochs=args.model.n_epochs, callbacks=[metrics_callback])
+    trainer = L.Trainer(max_epochs=args.finetune.n_epochs, callbacks=[metrics_callback])
     trainer.fit(model=model, datamodule=dm)
 
     # Evaluate Model

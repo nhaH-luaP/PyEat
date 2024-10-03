@@ -7,9 +7,22 @@ random_seed: 42
 trust_remote_code: True
 task: multilabel
 
-model:
+pretrain:
   n_epochs: 200
-  
+  learning_rate: 1e-3
+  weight_decay: 5e-5
+  momentum: 0.9
+  nesterov: True
+  batch_size: 12
+
+finetune:
+  n_epochs: 50
+  learning_rate: 1e-2
+  weight_decay: 5e-4
+  momentum: 0.9
+  nesterov: True
+  batch_size: 64
+  load_pretrained_weights: False
 
 dataset:
   name: HSN

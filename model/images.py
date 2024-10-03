@@ -17,7 +17,6 @@ from .mae import get_2d_sincos_pos_embed_flexible, PatchEmbed_new
 
 from .base import (
     ModalitySpecificEncoder,
-    get_alibi_bias,
     MaskSeed,
 )
 from .modules import (
@@ -37,12 +36,11 @@ class ImageEncoder(ModalitySpecificEncoder):
         embed_dim: int,
         make_block: Callable[[float, Optional[int], Optional[int]], nn.ModuleList],
         norm_layer: Callable[[int], nn.LayerNorm],
-        layer_norm_first: bool,
-        alibi_biases: Dict,
+        layer_norm_first: bool
     ):
         
         if modality_cfg.in_chans == 1 :  
-            img_size = (modality_cfg.target_length,128)
+            img_size = (modality_cfg.target_length,modality_cfg.target_height)
         else:
             img_size =  to_2tuple(modality_cfg.input_size)
 
@@ -127,14 +125,6 @@ class ImageEncoder(ModalitySpecificEncoder):
                 Decoder2d(modality_cfg.decoder, embed_dim, self.H, self.W)
             )
 
-        alibi_bias_fn = partial(
-            get_alibi_bias,
-            alibi_biases=alibi_biases,
-            heads=modality_cfg.num_alibi_heads,
-            dims=modality_cfg.alibi_dims,
-            distance=modality_cfg.alibi_distance,
-        )
-
         super().__init__(
             modality_cfg=modality_cfg,
             embed_dim=embed_dim,
@@ -143,8 +133,7 @@ class ImageEncoder(ModalitySpecificEncoder):
             fixed_positional_encoder=fixed_positional_encoder,
             relative_positional_encoder=None,
             context_encoder=context_encoder,
-            decoder=decoder,
-            get_alibi_bias=alibi_bias_fn,
+            decoder=decoder
         )
 
     def reset_parameters(self):

@@ -43,8 +43,7 @@ class Data2VecMultiModel(nn.Module):
         embed_dim: int,
         make_block: Callable[[float], nn.ModuleList],
         norm_layer: Callable[[int], nn.LayerNorm],
-        layer_norm_first: bool,
-        alibi_biases,
+        layer_norm_first: bool
     ) -> ModalitySpecificEncoder:
         enc_cls = ImageEncoder
 
@@ -53,8 +52,7 @@ class Data2VecMultiModel(nn.Module):
             embed_dim,
             make_block,
             norm_layer,
-            layer_norm_first,
-            alibi_biases,
+            layer_norm_first
         )
 
     def __init__(self, args, skip_ema=False, task=None):
@@ -83,8 +81,6 @@ class Data2VecMultiModel(nn.Module):
                 layer_norm_first=cfg.layer_norm_first,
                 ffn_targets=not cfg.end_of_block_targets,
             )
-
-        self.alibi_biases = {}
         
         # extract CNN encoder and CNN decoder from modified data2vec image modality (see image.py)
         self.modality_encoder = self.make_modality_encoder(
@@ -92,8 +88,7 @@ class Data2VecMultiModel(nn.Module):
             cfg.embed_dim,
             make_block,
             make_layer_norm,
-            cfg.layer_norm_first,
-            self.alibi_biases,
+            cfg.layer_norm_first
         )
 
         self.ema = None
@@ -101,7 +96,6 @@ class Data2VecMultiModel(nn.Module):
         self.average_top_k_layers = cfg.average_top_k_layers
         self.loss_beta = cfg.loss_beta
         self.loss_scale = cfg.loss_scale
-        self.utterance_level = cfg.utterance_level
 
         self.dropout_input = nn.Dropout(cfg.dropout_input)
 
@@ -137,29 +131,12 @@ class Data2VecMultiModel(nn.Module):
             if cfg.recon_loss > 0:
                 self.recon_proj = nn.Linear(cfg.embed_dim, cfg.embed_dim//3)
                 
-            self.cls_proj = None
-            if cfg.utterance_level:
-                self.cls_proj = nn.Linear(cfg.embed_dim, cfg.embed_dim)
 
         for pn, p in self.named_parameters():
-            if len(p.shape) == 1 or pn.endswith(".bias") or "alibi_scale" in pn:
+            if len(p.shape) == 1 or pn.endswith(".bias"):
                 p.optim_overrides = {"optimizer": {"weight_decay_scale": 0}}
             if cfg.decoder_group and "decoder" in pn:
                 p.param_group = "decoder"
-        
-        # dino loss experiment
-        self.center = None
-        if self.utterance_level:
-            self.center_exp = cfg.center_exp
-            self.soft_tem_s = cfg.softmax_temperature_student
-            self.soft_tem_t = cfg.softmax_temperature_teacher
-            self.center = nn.Parameter(
-                    torch.zeros(1, 1, cfg.embed_dim, requires_grad=False)
-                )
-            if not cfg.init_center_token_zero:
-                nn.init.normal_(self.center)
-            elif self.center.size(1) > 1:
-                nn.init.normal_(self.center[:, 1:])
 
         self.num_updates = 0
 
@@ -306,8 +283,6 @@ class Data2VecMultiModel(nn.Module):
         x = extractor_out["x"]
         encoder_mask = extractor_out["encoder_mask"]
         masked_padding_mask = extractor_out["padding_mask"]
-        masked_alibi_bias = extractor_out.get("alibi_bias", None)
-        alibi_scale = extractor_out.get("alibi_scale", None)
 
         if self.dropout_input is not None:
             x = self.dropout_input(x)
@@ -320,19 +295,9 @@ class Data2VecMultiModel(nn.Module):
                 or self.cfg.layerdrop == 0
                 or (np.random.random() > self.cfg.layerdrop)
             ):
-                ab = masked_alibi_bias
-                if ab is not None and alibi_scale is not None:
-                    scale = (
-                        alibi_scale[i]
-                        if alibi_scale.size(0) > 1
-                        else alibi_scale.squeeze(0)
-                    )
-                    ab = ab * scale.type_as(ab)
-
                 x, lr = blk(
                     x,
-                    padding_mask=masked_padding_mask,
-                    alibi_bias=ab,
+                    padding_mask=masked_padding_mask
                 )
                 if features_only:
                     layer_results.append(lr)
@@ -357,25 +322,12 @@ class Data2VecMultiModel(nn.Module):
             }
 
         # decode features merged with masked tokens, dx in shape (batch_size * clone_batch, patch, 768)
-        xs = []
-        if self.shared_decoder is not None:
-            dx = self.forward_decoder(
-                x,
-                self.modality_encoder,
-                self.shared_decoder,
-                encoder_mask,
-            )
-            xs.append(dx)
-        if self.modality_encoder.decoder is not None:
-            dx = self.forward_decoder(
-                x,
-                self.modality_encoder,
-                self.modality_encoder.decoder,
-                encoder_mask,
-            )
-            xs.append(dx)
-
-        assert len(xs) > 0
+        dx = self.forward_decoder(
+            x,
+            self.modality_encoder,
+            self.modality_encoder.decoder,
+            encoder_mask,
+        )
 
         p = next(self.ema.model.parameters())
         device = x.device
@@ -441,8 +393,6 @@ class Data2VecMultiModel(nn.Module):
                     )
 
             ema_padding_mask = ema_input["padding_mask"]
-            ema_alibi_bias = ema_input.get("alibi_bias", None)
-            ema_alibi_scale = ema_input.get("alibi_scale", None)
             ema_input = ema_input["x"]
 
             # extract target features using teacher CNN encoder
@@ -451,19 +401,9 @@ class Data2VecMultiModel(nn.Module):
             ema_x = []
             extra_tokens = self.modality_encoder.modality_cfg.num_extra_tokens
             for i, blk in enumerate(ema_blocks):  
-                ab = ema_alibi_bias
-                if ab is not None and alibi_scale is not None:
-                    scale = (
-                        ema_alibi_scale[i]
-                        if ema_alibi_scale.size(0) > 1
-                        else ema_alibi_scale.squeeze(0)
-                    )
-                    ab = ab * scale.type_as(ab)
-
                 ema_input, lr = blk(
                     ema_input,
-                    padding_mask=ema_padding_mask,
-                    alibi_bias=ab,
+                    padding_mask=ema_padding_mask
                 )
                 y.append(lr[:, extra_tokens:])
                 ema_x.append(ema_input[:, extra_tokens:])
@@ -481,10 +421,10 @@ class Data2VecMultiModel(nn.Module):
         masked_b = encoder_mask.mask.bool()
         y = y[masked_b]     
 
-        if xs[0].size(1) == masked_b.size(1):
-            xs = [x[masked_b] for x in xs]
+        if dx.size(1) == masked_b.size(1):
+            dx = dx[masked_b]
         else:
-            xs = [x.reshape(-1, x.size(-1)) for x in xs]
+            dx = dx.reshape(-1, dx.size(-1))
             
 
         sample_size = masked.sum().long()
@@ -497,7 +437,7 @@ class Data2VecMultiModel(nn.Module):
         sample_size = result["sample_size"]
 
         # EAT employ utterance-level loss by using mean pooling in patch dimension
-        if self.cfg.cls_loss > 0 and not self.utterance_level:
+        if self.cfg.cls_loss > 0:
             assert extra_tokens > 0
             cls_target = orig_targets.mean(dim=1)
             if self.cfg.clone_batch > 1:
@@ -507,24 +447,6 @@ class Data2VecMultiModel(nn.Module):
             result["losses"]["cls"] = self.d2v_loss(cls_pred, cls_target) * (
                 self.cfg.cls_loss * sample_size
             )
-            
-        # dino loss experiment
-        if self.cfg.cls_loss > 0 and self.utterance_level:
-            assert extra_tokens > 0
-            cls_target = orig_targets.mean(dim=1)
-            if self.cfg.clone_batch > 1:
-                cls_target = cls_target.repeat_interleave(self.cfg.clone_batch, 0)  #(btz*clone,1,768)
-            cls_pred = x[:, extra_tokens - 1]
-            cls_target = cls_target - self.center
-            
-            cls_pred = cls_pred.squeeze(dim=1)
-            cls_target = cls_target.squeeze(dim=1)
-            
-            result["losses"]["cls"] = self.dino_loss(cls_pred, cls_target) * (
-                self.cfg.cls_loss * sample_size
-            )
-            
-            self.center = self.center_exp * self.center + (1 - self.center_exp) * (cls_target.mean(dim=0))
             
         if self.cfg.recon_loss > 0:
 
@@ -540,7 +462,7 @@ class Data2VecMultiModel(nn.Module):
                 if masked_b is not None:
                     target = target[masked_b]
 
-            recon = xs[0]
+            recon = dx
             if self.recon_proj is not None:
                 recon = self.recon_proj(recon)
 
@@ -549,10 +471,8 @@ class Data2VecMultiModel(nn.Module):
             )
 
         if self.cfg.d2v_loss > 0:
-            for i, x in enumerate(xs):
-                reg_loss = self.d2v_loss(x, y)
-                n = f"{mode}_regression_{i}" if len(xs) > 1 else f"{mode}_regression"
-                result["losses"][n] = reg_loss * self.cfg.d2v_loss
+            reg_loss = self.d2v_loss(dx, y)
+            result["losses"]["d2v"] = reg_loss * self.cfg.d2v_loss
 
         # compute state for logs
         suffix = ""
@@ -561,9 +481,9 @@ class Data2VecMultiModel(nn.Module):
                 result["masked_pct"] = 1 - (
                     encoder_mask.ids_keep.size(1) / encoder_mask.ids_restore.size(1)
                 )
-            for i, x in enumerate(xs):
-                n = f"pred_var{suffix}_{i}" if len(xs) > 1 else f"pred_var{suffix}"
-                result[n] = self.compute_var(x.float())
+            
+            n = f"pred_var{suffix}"
+            result[n] = self.compute_var(dx.float())
             if self.ema is not None:
                 for k, v in self.ema.logs.items():
                     result[k] = v
@@ -623,12 +543,7 @@ class Data2VecMultiModel(nn.Module):
         reg_loss = loss * scale
 
         return reg_loss
-    
-    def dino_loss(self,s,t):
-        t = t.detach()
-        s = F.softmax(s/self.soft_tem_s,dim=1)
-        t = F.softmax((t-self.center)/self.soft_tem_t,dim=1)
-        return - (t * torch.log(s)).sum(dim=1).mean()
+
     
     # average top-k layers output from teacher model
     def make_targets(self, y, num_layers):
@@ -705,22 +620,3 @@ class Data2VecMultiModel(nn.Module):
             remove_extra_tokens=remove_extra_tokens,
         )
         return res
-
-    ##def remove_pretraining_modules(self, modality=None, keep_decoder=False):
-    ##    self.ema = None
-    ##    self.cfg.clone_batch = 1
-    ##    self.recon_proj = None        
-##
-    ##    if not keep_decoder:
-    ##        self.shared_decoder = None
-##
-    ##    modality = modality.lower() if modality is not None else None
-    ##    for k in list(self.modality_encoders.keys()):
-    ##        if modality is not None and k.lower() != modality:
-    ##            del self.modality_encoders[k]
-    ##        else:
-    ##            self.modality_encoders[k].remove_pretraining_modules(
-    ##                keep_decoder=keep_decoder
-    ##            )
-    ##            if not keep_decoder:
-    ##                self.modality_encoders[k].decoder = None

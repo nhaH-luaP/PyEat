@@ -4,6 +4,7 @@ from utils import seed_everything, MetricsCallback
 
 import hydra
 import os
+import torch
 import logging
 import json
 from omegaconf import OmegaConf
@@ -32,7 +33,6 @@ def main(args):
     dm = BirdSetDataModule(
         dataset=DatasetConfig(
             data_dir=args.path.data_dir,
-            dataset_name=args.dataset.name,
             hf_path=args.path.hf_path,
             hf_name=args.dataset.name,
             n_workers=args.dataset.num_workers,
@@ -40,9 +40,9 @@ def main(args):
             task=args.task,
             classlimit=500,
             eventlimit=5,
-            sampling_rate=32000,
+            sampling_rate=16000,
         ),
-        loaders=LoadersConfig(train=LoaderConfig(batch_size=1))
+        loaders=LoadersConfig(train=LoaderConfig(batch_size=args.pretrain.batch_size))
     )
     dm.prepare_data()
     dm.setup(stage="fit")
@@ -50,18 +50,19 @@ def main(args):
     # Initialize Model
     logging.info(f">>> Initialize Model.")
     backbone = Data2VecMultiModel(args=args)
-    model = EATPretrain(model=backbone)
+    model = EATPretrain(model=backbone, args=args)
 
     # Initialize callback for keeping track of metrics
     metrics_callback = MetricsCallback()
 
-    # Finetune Model
-    trainer = L.Trainer(max_epochs=args.model.n_epochs, callbacks=[metrics_callback], accelerator='gpu')
+    # Pretrain the Model
+    trainer = L.Trainer(max_epochs=args.pretrain.n_epochs, callbacks=[metrics_callback], accelerator='gpu')
     trainer.fit(model=model, datamodule=dm)
 
-    # Evaluate Model
-    dm.setup(stage='test')
-    trainer.test(model=model, datamodule=dm)
+    # Extract the backbone and save the state dict
+    backbone = model.model
+    state_dict = backbone.state_dict()
+    torch.save(state_dict, os.path.join(args.path.model_dir, "pretrained_weights_"+str(args.random_seed)+".pth"))
 
     # Extract metrics and export into json file
     metrics_dict = {'train_metrics':metrics_callback.train_metrics, 'test_metrics':metrics_callback.test_metrics}

@@ -46,8 +46,9 @@ class BlockEncoder(nn.Module):
         self.layerdrop = layerdrop
         self.dropout = nn.Dropout(dropout, inplace=True)
 
-    def forward(self, x, padding_mask, alibi_bias, alibi_scale):
-        x = x.to('cuda')
+    def forward(self, x, padding_mask):
+        #TODO: Put line below back into code after debugging on laptop
+        #x = x.to('cuda')
         if self.norm is not None and not self.layer_norm_first:
             x = self.norm(x)
 
@@ -59,15 +60,7 @@ class BlockEncoder(nn.Module):
                 or self.layerdrop == 0
                 or (np.random.random() > self.layerdrop)
             ):
-                ab = alibi_bias
-                if ab is not None and alibi_scale is not None:
-                    scale = (
-                        alibi_scale[i]
-                        if alibi_scale.size(0) > 1
-                        else alibi_scale.squeeze(0)
-                    )
-                    ab = ab * scale.type_as(ab)
-                x, _ = blk(x, padding_mask, ab)
+                x, _ = blk(x, padding_mask)
 
         if self.norm is not None and self.layer_norm_first:
             x = self.norm(x)
@@ -280,16 +273,16 @@ class AltBlock(nn.Module):
         )
         self.post_mlp_dropout = nn.Dropout(post_mlp_drop, inplace=False)
 
-    def forward(self, x, padding_mask=None, alibi_bias=None):
+    def forward(self, x, padding_mask=None):
         if self.layer_norm_first:
-            x = x + self.drop_path(self.attn(self.norm1(x), padding_mask, alibi_bias))
+            x = x + self.drop_path(self.attn(self.norm1(x), padding_mask))
             r = x = self.mlp(self.norm2(x))
             t = x
             x = r + self.drop_path(self.post_mlp_dropout(x))
             if not self.ffn_targets:
                 t = x
         else:
-            x = x + self.drop_path(self.attn(x, padding_mask, alibi_bias))
+            x = x + self.drop_path(self.attn(x, padding_mask))
             r = x = self.norm1(x)
             x = self.mlp(x)
             t = x
@@ -328,7 +321,7 @@ class AltAttention(nn.Module):
                 torch.log(10 * torch.ones((num_heads, 1, 1))), requires_grad=True
             )
 
-    def forward(self, x, padding_mask=None, alibi_bias=None):
+    def forward(self, x, padding_mask=None):
         B, N, C = x.shape
         qkv = (
             self.qkv(x)
@@ -353,10 +346,6 @@ class AltAttention(nn.Module):
         else:
             q = q * self.scale
             attn = q @ k.transpose(-2, -1)
-
-        if alibi_bias is not None:
-            attn = attn.type_as(alibi_bias)
-            attn[:, : alibi_bias.size(1)] += alibi_bias
 
         if padding_mask is not None and padding_mask.any():
             attn = attn.masked_fill(
@@ -403,7 +392,7 @@ class EncDecAttention(nn.Module):
                 torch.log(10 * torch.ones((num_heads, 1, 1))), requires_grad=True
             )
 
-    def forward(self, q, kv, padding_mask=None, alibi_bias=None):
+    def forward(self, q, kv, padding_mask=None):
         B, N, C = q.shape
 
         q = (
@@ -433,10 +422,6 @@ class EncDecAttention(nn.Module):
         else:
             q = q * self.scale
             attn = q @ k.transpose(-2, -1)
-
-        if alibi_bias is not None:
-            attn = attn.type_as(alibi_bias)
-            attn[:, : alibi_bias.size(1)] += alibi_bias
 
         if padding_mask is not None and padding_mask.any():
             attn = attn.masked_fill(
@@ -503,16 +488,16 @@ class EncDecBlock(nn.Module):
         self.post_mlp_dropout = nn.Dropout(post_mlp_drop, inplace=False)
         self.first_residual = first_residual
 
-    def forward(self, q, kv, padding_mask=None, alibi_bias=None):
+    def forward(self, q, kv, padding_mask=None):
         r = q if self.first_residual else 0
         if self.layer_norm_first:
             x = r + self.drop_path(
-                self.attn(self.norm1(q), kv, padding_mask, alibi_bias)
+                self.attn(self.norm1(q), kv, padding_mask)
             )
             r = x = self.mlp(self.norm2(x))
             x = r + self.drop_path(self.post_mlp_dropout(x))
         else:
-            x = r + self.drop_path(self.attn(q, kv, padding_mask, alibi_bias))
+            x = r + self.drop_path(self.attn(q, kv, padding_mask))
             r = x = self.norm1(x)
             x = self.mlp(x)
             x = self.norm2(r + self.drop_path(self.post_mlp_dropout(x)))

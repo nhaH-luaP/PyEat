@@ -3,9 +3,10 @@ import lightning as L
 
 
 class EATPretrain(L.LightningModule):
-    def __init__(self, model):
+    def __init__(self, model, args):
         super().__init__()
         self.model = model
+        self.args = args
 
     def training_step(self, batch, batch_idx):
         x, _ = batch['input_values'], batch['labels']
@@ -14,10 +15,12 @@ class EATPretrain(L.LightningModule):
         result = self.model(x)
 
         #TODO: Which losses need to be extracted and optimized for pretraining EAT?
-        loss = result["losses"]["cls"]
+        cls_loss = result["losses"]["cls"].mean()
+        d2v_loss = result["losses"]["d2v"].mean()
+        loss = cls_loss + d2v_loss
 
         # Logging
-        self.log_dict({'train_loss': loss.item()})
+        self.log_dict({'train_total_loss': loss.item(), 'train_cls_loss': cls_loss.item(), 'train_d2v_loss': d2v_loss.item()})
 
         # Return Loss for optimization
         return loss
@@ -28,7 +31,9 @@ class EATPretrain(L.LightningModule):
         # Forward Method of MultiModel
         result = self.model(x)
 
-        loss = result["losses"]["cls"]
+        cls_loss = result["losses"]["cls"].mean()
+        d2v_loss = result["losses"]["d2v"].mean()
+        loss = cls_loss + d2v_loss
 
         # Logging
         self.log_dict({'val_loss': loss.item()})
@@ -37,6 +42,12 @@ class EATPretrain(L.LightningModule):
         return loss
     
     def configure_optimizers(self):
-        optimizer = torch.optim.SGD(self.parameters(), lr=1e-1, weight_decay=5e-4, nesterov=True, momentum=0.9)
-        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=200)
+        optimizer = torch.optim.SGD(
+            params=self.parameters(), 
+            lr=self.args.pretrain.learning_rate, 
+            weight_decay=self.args.pretrain.weight_decay, 
+            nesterov=self.args.pretrain.nesterov, 
+            momentum=self.args.pretrain.momentum
+            )
+        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=self.args.pretrain.n_epochs)
         return [optimizer], [lr_scheduler]
