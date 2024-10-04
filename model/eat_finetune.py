@@ -59,12 +59,10 @@ class EATFineTune(L.LightningModule):
         # Calculate Loss
         loss = nn.functional.binary_cross_entropy_with_logits(logits, y)
 
-        # Calculate metrics
-        val_metrics = self.calculate_metrics(logits, y)
-
         # Logging
-        self.log_dict({'val_loss': loss} | val_metrics)
+        self.log_dict({'val_loss': loss})
     
+
     def test_step(self, batch, batch_idx):
         # Get logits
         x, y = batch['input_values'], batch['labels']
