@@ -119,8 +119,8 @@ class EATFineTune(L.LightningModule):
         if self.map_module.device != logits.device:
             self.map_module.to(logits.device)
             self.cmap_module.to(logits.device)
-        mAP = self.map_module(logits, y)
-        cmAP = self.cmap_module(logits, y)
+        mAP = self.map_module(logits, y.int())
+        cmAP = self.cmap_module(logits, y.int())
 
         return {
             "topk" : topk_score, 
