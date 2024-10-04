@@ -1,6 +1,6 @@
 from model.data2vecmultimodel import Data2VecMultiModel
 from model.eat_finetune import EATFineTune
-from utils import seed_everything, MetricsCallback
+from utils import seed_everything, MetricsCallback, MetricLogger
 
 import hydra
 import os
@@ -59,9 +59,18 @@ def main(args):
 
     # Initialize callback for keeping track of metrics
     metrics_callback = MetricsCallback()
+    metrics_logger = MetricLogger()
 
     # Finetune Model
-    trainer = L.Trainer(max_epochs=args.finetune.n_epochs, callbacks=[metrics_callback])
+    trainer = L.Trainer(
+        max_epochs=args.finetune.n_epochs, 
+        callbacks=[metrics_callback, metrics_logger],
+        default_root_dir=args.path.output_dir,
+        enable_checkpointing=False,
+        logger=False,
+        enable_progress_bar=False,
+        accelerator='gpu'
+        )
     trainer.fit(model=model, datamodule=dm)
 
     # Evaluate Model
