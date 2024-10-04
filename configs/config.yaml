@@ -23,6 +23,7 @@ finetune:
   nesterov: True
   batch_size: 64
   load_pretrained_weights: False
+  use_mixup: False
   mixup_alpha: 0.5
   cutmix_alpha: 0.0
   mix_prob: 1

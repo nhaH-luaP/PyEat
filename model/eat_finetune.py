@@ -31,7 +31,7 @@ class EATFineTune(L.LightningModule):
         # Perform Mixup and then get the logits
         x, y = batch['input_values'], batch['labels']
 
-        if x.shape[0] % 2 == 0: # Important due to mixup workflow to have an evenly shaped batch
+        if x.shape[0] % 2 == 0 and self.args.finetune.use_mixup: # Important due to mixup workflow to have an evenly shaped batch
             x, y = self.mixup_fn(x, y)
         logits = self.get_logits(x)
 
