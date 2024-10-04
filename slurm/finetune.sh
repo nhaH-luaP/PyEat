@@ -4,7 +4,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:1
 #SBATCH --partition=main
-#SBATCH --job-name=EAT-PRE
+#SBATCH --job-name=EAT-FINE
 #SBATCH --output=/mnt/stud/work/phahn/repositories/EAT/logs/finetune_%x.log
 
 source /mnt/stud/work/python/mconda/39/bin/activate base
@@ -26,3 +26,4 @@ srun python finetune.py \
     path.data_dir=$DATA_DIR \
     random_seed=42 \
     task=multilabel \
+    finetune.n_epochs=1 \

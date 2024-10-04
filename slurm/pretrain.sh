@@ -5,7 +5,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --partition=main
 #SBATCH --job-name=EAT-PRE
-#SBATCH --output=/mnt/stud/work/phahn/repositories/EAT/logs/pretrain_%x.log
+#SBATCH --output=/mnt/stud/work/phahn/repositories/EAT/logs/pretrain_XCM.log
 
 source /mnt/stud/work/python/mconda/39/bin/activate base
 conda activate pyeat
@@ -25,6 +25,6 @@ srun python pretrain.py \
     path.output_dir=$OUTPUT_DIR \
     path.data_dir=$DATA_DIR \
     random_seed=42 \
-    dataset.name=XCL \
-    dataset.num_classes=9735 \
+    dataset.name=XCM \
+    dataset.num_classes=409 \
     task=multiclass \
