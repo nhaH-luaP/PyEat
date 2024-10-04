@@ -118,7 +118,7 @@ class SmoothedValue:
 
 
 class MetricLogger(L.Callback):
-    def __init__(self, log_interval=100, delimiter=' ', use_print=False):
+    def __init__(self, log_interval=20, delimiter=' ', use_print=False):
         super().__init__()
         self.log_interval = log_interval
         self.delimiter = delimiter
@@ -163,21 +163,22 @@ class MetricLogger(L.Callback):
         self.meters['lr'] = SmoothedValue(window_size=1, fmt="{value:.4f}")
 
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx) -> None:
-        metrics = {k: v.item() for k, v in trainer.logged_metrics.items()}
-        metrics['lr'] = trainer.optimizers[0].param_groups[0]['lr']
+        if len(batch) > 0:
+            metrics = {k: v.item() for k, v in trainer.logged_metrics.items()}
+            metrics['lr'] = trainer.optimizers[0].param_groups[0]['lr']
 
-        for key, val in metrics.items():
-            batch_size = len(batch[0])
-            self.meters[key].update(val, n=batch_size)
+            for key, val in metrics.items():
+                batch_size = len(batch[0])
+                self.meters[key].update(val, n=batch_size)
 
-        if self.train_step % self.log_interval == 0:
-            log_msg = self.delimiter.join([
-                f'{self.header}',
-                ("[{0" + self.space_fmt + "}").format(batch_idx)+f"/{self.num_batches}]",
-                str(self),
-            ])
-            self._log(log_msg)
-        self.train_step += 1
+            if self.train_step % self.log_interval == 0:
+                log_msg = self.delimiter.join([
+                    f'{self.header}',
+                    ("[{0" + self.space_fmt + "}").format(batch_idx)+f"/{self.num_batches}]",
+                    str(self),
+                ])
+                self._log(log_msg)
+            self.train_step += 1
 
     @rank_zero_only
     def on_train_epoch_end(self, trainer, pl_module):
