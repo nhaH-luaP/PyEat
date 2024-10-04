@@ -197,3 +197,16 @@ class MetricLogger(L.Callback):
             f'{self.header} Total time for validation: {eta}',
         ])
         self._log(log_msg)
+
+    @rank_zero_only
+    def on_test_epoch_start(self, trainer, pl_module):
+        self.header = f"Epoch [{trainer.current_epoch}]"
+        self._start_time_val = time.time()
+
+    @rank_zero_only
+    def on_test_epoch_end(self, trainer, pl_module):
+        eta = datetime.timedelta(seconds=int(time.time() - self._start_time_val))
+        log_msg = self.delimiter.join([
+            f'{self.header} Total time for testing: {eta}',
+        ])
+        self._log(log_msg)

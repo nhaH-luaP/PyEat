@@ -29,6 +29,7 @@ finetune:
   mix_prob: 1
   mixup_label_smoothing: 0.0
   prediction_mode: mean_pooling
+  threshold: 0.5
 
 dataset:
   name: HSN

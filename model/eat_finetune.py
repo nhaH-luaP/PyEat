@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 import lightning as L
 
-from sklearn.metrics import average_precision_score, roc_auc_score
+from .utils import cmAP, mAP, TopKAccuracy
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -29,6 +29,10 @@ class EATFineTune(L.LightningModule):
                 label_smoothing=args.finetune.mixup_label_smoothing,
                 num_classes=num_classes,
             )
+        
+        self.topk_module = TopKAccuracy(topk=1, threshold=args.finetune.threshold)
+        self.map_module = mAP(num_labels=num_classes)
+        self.cmap_module = cmAP(num_labels=num_classes)
 
     def training_step(self, batch, batch_idx):
         # Perform Mixup and then get the logits
@@ -102,33 +106,25 @@ class EATFineTune(L.LightningModule):
         probas = torch.nn.functional.sigmoid(logits)
         preds = (probas >= threshold).float()
 
-        # Calculate Accuracy
-        correct = (preds == y).float()
-        test_acc = (correct.sum() / correct.numel()).item()
-
         # Calculate Hamming-Score
         y_int = y.int()
         preds_int = preds.int()
         ham_score = ((y_int & preds_int).sum(axis=1) / (y_int | preds_int).sum(axis=1)).mean().item()
 
-        # Calculate AUROC
-        try:
-            auroc = roc_auc_score(y_true=y.cpu(), y_score=probas.cpu(), multi_class='ovr', average='weighted')
-        except:
-            auroc = 0.5
+        # Calculate TopKAccuracy
+        self.topk_module = TopKAccuracy(topk=1, threshold=threshold)
+        self.topk_module.update(preds, y).compute()
+        topk_score = self.topk_module.compute()
 
-        # Calculate cmAP
-        cmAP_micro = average_precision_score(y.cpu(), probas.cpu(), average="micro")
-        cmAP_macro = average_precision_score(y.cpu(), probas.cpu(), average="macro")
-        cmAP_weighted =  average_precision_score(y.cpu(), probas.cpu(), average="weighted")
+        # Calculate mAP
+        mAP = self.map_module(logits, y)
+        cmAP = self.cmap_module(logits, y)
 
         return {
-            "test_acc" : test_acc, 
+            "topk" : topk_score, 
             "ham_score" : ham_score, 
-            "auroc" : auroc, 
-            "cmAP_micro" : cmAP_micro, 
-            "cmAP_macro" : cmAP_macro, 
-            "cmAP_weighted" : cmAP_weighted
+            "mAP" : mAP,
+            "cmAP" : cmAP
             }
 
     def reduce_features(self, features):
