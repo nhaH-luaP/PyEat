@@ -114,7 +114,7 @@ class EATFineTune(L.LightningModule):
         # Calculate TopKAccuracy
         self.topk_module = TopKAccuracy(topk=1, threshold=threshold)
         self.topk_module.to(logits.device)
-        self.topk_module.update(preds, y).compute()
+        self.topk_module.update(preds, y)
         topk_score = self.topk_module.compute()
 
         # Calculate mAP
