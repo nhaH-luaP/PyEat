@@ -8,6 +8,9 @@ import lightning as L
 
 from sklearn.metrics import average_precision_score, roc_auc_score
 
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
+
 
 class EATFineTune(L.LightningModule):
     def __init__(self, model, linear_classifier, num_classes, args, prediction_mode="mean_pooling"):
