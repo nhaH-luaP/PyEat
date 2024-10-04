@@ -25,3 +25,4 @@ srun python finetune.py \
     path.output_dir=$OUTPUT_DIR \
     path.data_dir=$DATA_DIR \
     random_seed=42 \
+    task=multilabel \

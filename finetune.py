@@ -55,7 +55,7 @@ def main(args):
     if args.finetune.load_pretrained_weights and os.path.exists(pretrained_weights_path):
         backbone.load_state_dict(torch.load(pretrained_weights_path))
     linear_classifier = torch.nn.Linear(in_features=args.multimodel.embed_dim, out_features=args.dataset.num_classes)
-    model = EATFineTune(model=backbone, linear_classifier=linear_classifier, num_classes=args.dataset.num_classes, args=args)
+    model = EATFineTune(model=backbone, linear_classifier=linear_classifier, num_classes=args.dataset.num_classes, args=args, prediction_mode=args.finetune.prediction_mode)
 
     # Initialize callback for keeping track of metrics
     metrics_callback = MetricsCallback()

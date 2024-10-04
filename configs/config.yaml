@@ -23,6 +23,11 @@ finetune:
   nesterov: True
   batch_size: 64
   load_pretrained_weights: False
+  mixup_alpha: 0.5
+  cutmix_alpha: 0.0
+  mix_prob: 1
+  mixup_label_smoothing: 0.0
+  prediction_mode: mean_pooling
 
 dataset:
   name: HSN
@@ -30,7 +35,7 @@ dataset:
   height: 128
   num_classes: 21
   in_channels: 1
-  num_workers: 5
+  num_workers: 7
   val_split: 0.25
 
 path:

@@ -26,4 +26,5 @@ srun python pretrain.py \
     path.data_dir=$DATA_DIR \
     random_seed=42 \
     dataset.name=XCL \
-    dataset.num_classes=9735
+    dataset.num_classes=9735 \
+    task=multiclass \

@@ -17,13 +17,13 @@ class EATFineTune(L.LightningModule):
         self.prediction_mode = prediction_mode
         self.args = args
         self.mixup_fn = Mixup(
-                mixup_alpha=0.5,
-                cutmix_alpha=0,
+                mixup_alpha=args.finetune.mixup_alpha,
+                cutmix_alpha=args.finetune.cutmix_alpha,
                 cutmix_minmax=None,
-                prob=1.0,
+                prob=args.finetune.mix_prob,
                 switch_prob=0.0,
                 mode="batch",
-                label_smoothing=0.0,
+                label_smoothing=args.finetune.mixup_label_smoothing,
                 num_classes=num_classes,
             )
 
