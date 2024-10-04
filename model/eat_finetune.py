@@ -31,8 +31,8 @@ class EATFineTune(L.LightningModule):
             )
         
         self.topk_module = TopKAccuracy(topk=1, threshold=args.finetune.threshold)
-        self.map_module = mAP(num_labels=num_classes).to(model.device)
-        self.cmap_module = cmAP(num_labels=num_classes).to(model.device)
+        self.map_module = mAP(num_labels=num_classes)
+        self.cmap_module = cmAP(num_labels=num_classes)
 
     def training_step(self, batch, batch_idx):
         # Perform Mixup and then get the logits
@@ -117,6 +117,9 @@ class EATFineTune(L.LightningModule):
         topk_score = self.topk_module.compute()
 
         # Calculate mAP
+        if self.map_module.device != logits.device:
+            self.map_module.to(logits.device)
+            self.cmap_module.to(logits.device)
         mAP = self.map_module(logits, y)
         cmAP = self.cmap_module(logits, y)
 
