@@ -5,14 +5,15 @@
 #SBATCH --gres=gpu:1
 #SBATCH --partition=main
 #SBATCH --job-name=EAT-PRE
-#SBATCH --output=/mnt/stud/work/phahn/repositories/EAT/logs/pretrain_%x.log
+#SBATCH --output=/mnt/stud/work/phahn/repositories/EAT/logs/finetune_%x.log
 
-source /mnt/stud/work/phahn/venvs/pyeat/bin/activate
+source /mnt/stud/work/python/mconda/39/bin/activate base
+conda activate pyeat
 
 cd /mnt/stud/work/phahn/repositories/EAT/PyEat/
 
 OUTPUT_DIR=/mnt/stud/work/phahn/repositories/PyEat/output/
-MODEL_DIR=/mnt/stud/work/phahn/repositories/PyEat/output/storage
+MODEL_DIR=/mnt/stud/work/phahn/repositories/PyEat/storage/
 DATA_DIR=/mnt/stud/work/phahn/datasets/
 
 echo "Saving results to $OUTPUT_DIR"
@@ -23,4 +24,4 @@ srun python finetune.py \
     path.model_dir=$MODEL_DIR \
     path.output_dir=$OUTPUT_DIR \
     path.data_dir=$DATA_DIR \
-    random_seed=${seed} \
+    random_seed=42 \
