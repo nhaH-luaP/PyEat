@@ -4,15 +4,13 @@
 # LICENSE file in the root directory of this source tree.
 
 import logging
-import math
 import torch
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
 from collections import namedtuple
-from functools import partial
-from typing import Optional, Callable
+from typing import Optional
 
 from .fairseq.data_utils import compute_mask_indices
 from .fairseq.grad_multiply import GradMultiply
@@ -187,9 +185,6 @@ class ModalitySpecificEncoder(nn.Module):
         
         if self.extra_tokens is not None:
             num = self.extra_tokens.size(1)
-            # TODO: Workaround for device missmatch
-            if self.extra_tokens.device != x.device:
-                self.extra_tokens = self.extra_tokens.to(x.device)
             x = torch.cat([self.extra_tokens.expand(x.size(0), -1, -1), x], dim=1)
             if masked_padding_mask is not None:
                 # B x T
@@ -308,9 +303,8 @@ class ModalitySpecificEncoder(nn.Module):
         if shape is not None:
             x_unmasked = None
         else:
-            #TODO: The ".to(x.device)" is a current workaround for CUDA error between ids_keep and x
             ids_keep = ids_keep.unsqueeze(-1).expand(-1, -1, D)
-            x_unmasked = torch.gather(x.cpu(), dim=1, index=ids_keep) # ADDED THE .cpu() !!!!!!!!!!!!!!!!!!!!!
+            x_unmasked = torch.gather(x, dim=1, index=ids_keep)
 
         mask_info = MaskInfo(
             x_unmasked=x_unmasked,

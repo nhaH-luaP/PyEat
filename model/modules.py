@@ -47,8 +47,6 @@ class BlockEncoder(nn.Module):
         self.dropout = nn.Dropout(dropout, inplace=True)
 
     def forward(self, x, padding_mask):
-        #TODO: Put line below back into code after debugging on laptop
-        #x = x.to('cuda')
         if self.norm is not None and not self.layer_norm_first:
             x = self.norm(x)
 
