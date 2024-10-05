@@ -187,6 +187,9 @@ class ModalitySpecificEncoder(nn.Module):
         
         if self.extra_tokens is not None:
             num = self.extra_tokens.size(1)
+            # TODO: Workaround for device missmatch
+            if self.extra_tokens.device != x.device:
+                self.extra_tokens.to(x.device)
             x = torch.cat([self.extra_tokens.expand(x.size(0), -1, -1), x], dim=1)
             if masked_padding_mask is not None:
                 # B x T
