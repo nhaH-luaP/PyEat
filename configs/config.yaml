@@ -45,4 +45,4 @@ path:
   data_dir: /home/phahn/datasets/birdset/HSN/
   model_dir: ./storage/pretrained_models
   hf_path: DBD-research-group/BirdSet
-  pretrained_weights_dir: /home/phahn/repositories/DLL-SSL-1/pretrained_weights/checkpoint_last.pt
+  XCL_path: '/mnt/datasets/bird_recordings/birdset_hf_download/XCL/XCL_processed_3_e2056aa472804029'

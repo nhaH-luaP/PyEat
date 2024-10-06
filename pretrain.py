@@ -38,8 +38,6 @@ def main(args):
             n_workers=args.dataset.num_workers,
             val_split=args.dataset.val_split,
             task=args.task,
-            classlimit=500,
-            eventlimit=5,
             sampling_rate=16000,
         ),
         loaders=LoadersConfig(train=LoaderConfig(batch_size=args.pretrain.batch_size))
@@ -54,7 +52,7 @@ def main(args):
 
     # Initialize callback for keeping track of metrics
     metrics_callback = MetricsCallback()
-    metrics_logger = MetricLogger()
+    metrics_logger = MetricLogger(log_interval=50)
 
     # Pretrain the Model
     trainer = L.Trainer(

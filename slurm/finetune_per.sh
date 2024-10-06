@@ -5,16 +5,16 @@
 #SBATCH --gres=gpu:1
 #SBATCH --partition=main
 #SBATCH --job-name=EAT-FINE
-#SBATCH --output=/mnt/stud/work/phahn/repositories/EAT/logs/finetune_%x.log
+#SBATCH --output=/mnt/stud/work/phahn/repositories/EAT/logs/finetune_per.log
 
 source /mnt/stud/work/python/mconda/39/bin/activate base
 conda activate pyeat
 
 cd /mnt/stud/work/phahn/repositories/EAT/PyEat/
 
-OUTPUT_DIR=/mnt/stud/work/phahn/repositories/PyEat/output/
-MODEL_DIR=/mnt/stud/work/phahn/repositories/PyEat/storage/
-DATA_DIR=/mnt/stud/work/phahn/datasets/
+OUTPUT_DIR=/mnt/stud/work/phahn/repositories/EAT/output/
+MODEL_DIR=/mnt/stud/work/phahn/repositories/EAT/storage/
+DATA_DIR=/mnt/stud/work/phahn/repositories/EAT/data/PER/
 
 echo "Saving results to $OUTPUT_DIR"
 echo "Loading dataset from $DATA_DIR"
@@ -27,3 +27,5 @@ srun python finetune.py \
     random_seed=42 \
     task=multilabel \
     finetune.n_epochs=1 \
+    dataset.name=PER \
+    dataset.num_classes=132 \

@@ -185,6 +185,9 @@ class ModalitySpecificEncoder(nn.Module):
         
         if self.extra_tokens is not None:
             num = self.extra_tokens.size(1)
+            #TODO: Workaround for device problem, needs better fix later
+            if x.device != self.extra_tokens.device:
+                x = x.to(self.extra_tokens.device)
             x = torch.cat([self.extra_tokens.expand(x.size(0), -1, -1), x], dim=1)
             if masked_padding_mask is not None:
                 # B x T
@@ -303,8 +306,9 @@ class ModalitySpecificEncoder(nn.Module):
         if shape is not None:
             x_unmasked = None
         else:
+            #TODO: Workaround for device issues
             ids_keep = ids_keep.unsqueeze(-1).expand(-1, -1, D)
-            x_unmasked = torch.gather(x, dim=1, index=ids_keep)
+            x_unmasked = torch.gather(x.cpu(), dim=1, index=ids_keep)
 
         mask_info = MaskInfo(
             x_unmasked=x_unmasked,
