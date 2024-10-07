@@ -35,15 +35,18 @@ class EATFineTune(L.LightningModule):
         self.cmap_module = cmAP(num_labels=num_classes)
 
     def training_step(self, batch, batch_idx):
-        # Perform Mixup and then get the logits
+        # Get logits of either normal or mixed samples
+        # Shape divisible by two is important due to mixup workflow to have an evenly shaped batch
         x, y = batch['input_values'], batch['labels']
-
-        if x.shape[0] % 2 == 0 and self.args.finetune.use_mixup: # Important due to mixup workflow to have an evenly shaped batch
+        if x.shape[0] % 2 == 0 and self.args.finetune.use_mixup: 
             x, y = self.mixup_fn(x, y)
         logits = self.get_logits(x)
 
         # Calculate Loss
-        loss = nn.functional.binary_cross_entropy_with_logits(logits, y)
+        if self.args.finetune.loss_type == 'multilabel' or self.args.finetune.use_mixup:
+            loss = nn.functional.binary_cross_entropy_with_logits(logits, y)
+        else:
+            loss = nn.functional.cross_entropy(logits, y)
 
         # Logging
         self.log_dict({'train_loss': loss.item()})
@@ -57,10 +60,20 @@ class EATFineTune(L.LightningModule):
         logits = self.get_logits(x)
 
         # Calculate Loss
-        loss = nn.functional.binary_cross_entropy_with_logits(logits, y)
+        if self.args.finetune.loss_type == 'multilabel':
+            loss = nn.functional.binary_cross_entropy_with_logits(logits, y)
+        else:
+            loss = nn.functional.cross_entropy(logits, y)
+
+        # Calculate Multi-Class Accuracy
+        probas = logits.softmax(-1)
+        preds = probas.argmax(-1)
+        n_samples = preds.size(0)
+        n_correct = torch.sum(preds == y).item()
+        acc = n_correct(n_samples)
 
         # Logging
-        self.log_dict({'val_loss': loss})
+        self.log_dict({'val_loss': loss, 'val_acc':acc})
     
 
     def test_step(self, batch, batch_idx):

@@ -40,13 +40,12 @@ def main(args):
             task=args.task,
             classlimit=500,
             eventlimit=5,
-            sampling_rate=16000,
+            sampling_rate=32000,
         ),
         loaders=LoadersConfig(train=LoaderConfig(batch_size=args.finetune.batch_size))
     )
     dm.prepare_data()
     dm.setup(stage="fit")
-
 
     # Initialize Model with potentially pretrained weights
     logging.info(f">>> Initialize Model.")

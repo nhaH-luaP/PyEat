@@ -30,6 +30,7 @@ finetune:
   mixup_label_smoothing: 0.0
   prediction_mode: mean_pooling
   threshold: 0.5
+  loss_type: multilabel
 
 dataset:
   name: HSN
@@ -45,4 +46,3 @@ path:
   data_dir: /home/phahn/datasets/birdset/HSN/
   model_dir: ./storage/pretrained_models
   hf_path: DBD-research-group/BirdSet
-  XCL_path: '/mnt/datasets/bird_recordings/birdset_hf_download/XCL/XCL_processed_3_e2056aa472804029'

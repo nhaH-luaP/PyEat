@@ -38,7 +38,9 @@ def main(args):
             n_workers=args.dataset.num_workers,
             val_split=args.dataset.val_split,
             task=args.task,
-            sampling_rate=16000,
+            classlimit=500,
+            eventlimit=5,
+            sampling_rate=32000,
         ),
         loaders=LoadersConfig(train=LoaderConfig(batch_size=args.pretrain.batch_size))
     )
