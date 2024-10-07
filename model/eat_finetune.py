@@ -1,4 +1,7 @@
 from .mixup import Mixup
+from .utils import TopKAccuracy
+
+import numpy as np
 
 import torch
 import torch.nn as nn
@@ -6,18 +9,21 @@ import torch.nn.functional as F
 
 import lightning as L
 
-from .utils import cmAP, mAP, TopKAccuracy
+from torchmetrics.classification import MultilabelAUROC
+from torchmetrics.classification.average_precision import MultilabelAveragePrecision
+
+from sklearn.metrics import average_precision_score
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
 
 class EATFineTune(L.LightningModule):
-    def __init__(self, model, linear_classifier, num_classes, args, prediction_mode="mean_pooling"):
+    def __init__(self, model, linear_classifier, num_classes, args):
         super().__init__()
         self.model = model
         self.linear_classifier = linear_classifier
-        self.prediction_mode = prediction_mode
+        self.prediction_mode = self.args.finetune.prediction_mode
         self.args = args
         self.mixup_fn = Mixup(
                 mixup_alpha=args.finetune.mixup_alpha,
@@ -29,10 +35,10 @@ class EATFineTune(L.LightningModule):
                 label_smoothing=args.finetune.mixup_label_smoothing,
                 num_classes=num_classes,
             )
-        
-        self.topk_module = TopKAccuracy(topk=1, threshold=args.finetune.threshold)
-        self.map_module = mAP(num_labels=num_classes)
-        self.cmap_module = cmAP(num_labels=num_classes)
+
+        self.accuracy_fn = TopKAccuracy(topk=1, threshold=args.finetune.threshold)
+        self.auroc_fn = MultilabelAUROC(num_labels=num_classes)
+        self.cmap_fn = MultilabelAveragePrecision(num_labels=num_classes, threshold=None, average="macro")
 
     def training_step(self, batch, batch_idx):
         # Get logits of either normal or mixed samples
@@ -65,19 +71,9 @@ class EATFineTune(L.LightningModule):
         else:
             loss = nn.functional.cross_entropy(logits, y)
 
-        acc = self.accuracy(logits, y.argmax(-1))
+        acc = self._calculate_accuracy(logits, y.argmax(-1))
 
         self.log_dict({'val_loss': loss, 'val_acc':acc})
-
-    def accuracy(self, logits, labels):
-        # Calculate Multi-Class Accuracy
-        probas = logits.softmax(-1)
-        preds = probas.argmax(-1)
-        n_samples = preds.size(0)
-        n_correct = torch.sum(preds == labels).item()
-        acc = n_correct/n_samples
-        return acc
-    
 
     def test_step(self, batch, batch_idx):
         # Get logits
@@ -91,7 +87,7 @@ class EATFineTune(L.LightningModule):
         test_metrics = self.calculate_metrics(logits, y)
 
         # Logging
-        self.log_dict({'test_loss' : loss} | test_metrics)
+        self.log_dict({'test_loss' : loss} | {'test_'+key : value for key, value in test_metrics})
 
     def configure_optimizers(self):
         optimizer = torch.optim.SGD(
@@ -115,35 +111,44 @@ class EATFineTune(L.LightningModule):
         logits = self.linear_classifier(features)
         return logits
     
-    def calculate_metrics(self, logits, y, threshold=0.5):
-        # Calculate Class Probabilities and Predictions
+    def _calculate_accuracy(self, logits, labels):
+        probas = logits.softmax(-1)
+        preds = probas.argmax(-1)
+        n_samples = preds.size(0)
+        n_correct = torch.sum(preds == labels).item()
+        acc = n_correct/n_samples
+        return acc
+    
+    def _calculate_mAP(self, output, target):
+        classes_num = target.shape[-1]
+        ap_values = {}
+        for k in range(classes_num):
+            avg_precision = average_precision_score(target[:, k], output[:, k], average=None)
+            ap_values[k] = avg_precision
+        mean_ap = np.nanmean(list(ap_values.values()))
+        return mean_ap, ap_values
+    
+    def _calculate_hamming_score(self, y_true, y_pred):
+        return (
+            (y_true & y_pred).sum(axis=1) / (y_true | y_pred).sum(axis=1)
+        ).mean()
+    
+    def calculate_metrics(self, logits, y):
         probas = torch.nn.functional.sigmoid(logits)
-        preds = (probas >= threshold).float()
+        preds = (probas >= 0.5).cpu().numpy().astype(int)
 
-        # Calculate Hamming-Score
-        y_int = y.int()
-        preds_int = preds.int()
-        ham_score = ((y_int & preds_int).sum(axis=1) / (y_int | preds_int).sum(axis=1)).mean().item()
-
-        # Calculate TopKAccuracy
-        self.topk_module = TopKAccuracy(topk=1, threshold=threshold)
-        self.topk_module.to(logits.device)
-        self.topk_module.update(preds, y)
-        topk_score = self.topk_module.compute()
-
-        # Calculate mAP
-        if self.map_module.device != logits.device:
-            self.map_module.to(logits.device)
-            self.cmap_module.to(logits.device)
-        mAP = self.map_module(logits, y.int())
-        cmAP = self.cmap_module(logits, y.int())
-
+        acc = self.accuracy_fn(probas, y)
+        ham = self._calculate_hamming_score(y_pred=preds, y_true=y.cpu().numpy().astype(int))
+        mAP, _ = self._calculate_mAP(target=y.cpu(), output=probas.cpu())
+        cmAP = self.cmap_fn(logits, y.long())
+        auroc = self.auroc_fn(probas, y.long())
         return {
-            "topk" : topk_score, 
-            "ham_score" : ham_score, 
-            "mAP" : mAP,
-            "cmAP" : cmAP
-            }
+            'accuracy': acc, 
+            'hamming_score' : ham, 
+            'mAP' : mAP, 
+            'cmAP' : cmAP, 
+            'AUROC' : auroc
+        }
 
     def reduce_features(self, features):
         if self.prediction_mode == "mean_pooling":
