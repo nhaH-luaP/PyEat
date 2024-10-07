@@ -65,15 +65,18 @@ class EATFineTune(L.LightningModule):
         else:
             loss = nn.functional.cross_entropy(logits, y)
 
+        acc = self.accuracy(logits, y.argmax(-1))
+
+        self.log_dict({'val_loss': loss, 'val_acc':acc})
+
+    def accuracy(self, logits, labels):
         # Calculate Multi-Class Accuracy
         probas = logits.softmax(-1)
         preds = probas.argmax(-1)
         n_samples = preds.size(0)
-        n_correct = torch.sum(preds == y).item()
-        acc = n_correct(n_samples)
-
-        # Logging
-        self.log_dict({'val_loss': loss, 'val_acc':acc})
+        n_correct = torch.sum(preds == labels).item()
+        acc = n_correct/n_samples
+        return acc
     
 
     def test_step(self, batch, batch_idx):

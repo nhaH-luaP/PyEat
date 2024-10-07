@@ -14,7 +14,7 @@ cd /mnt/stud/work/phahn/repositories/EAT/PyEat/
 
 OUTPUT_DIR=/mnt/stud/work/phahn/repositories/EAT/output/
 MODEL_DIR=/mnt/stud/work/phahn/repositories/EAT/storage/XCL/
-DATA_DIR=/mnt/stud/work/phahn/repositories/EAT/data/XCL/
+DATA_DIR=/mnt/stud/work/phahn/repositories/EAT/data2/XCL/
 
 echo "Saving results to $OUTPUT_DIR"
 echo "Loading dataset from $DATA_DIR"

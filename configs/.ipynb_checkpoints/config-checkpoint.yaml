@@ -1,0 +1,48 @@
+defaults:
+  - modality: image
+  - multimodel: eat
+
+device: cuda
+random_seed: 42
+trust_remote_code: True
+task: multilabel
+
+pretrain:
+  n_epochs: 200
+  learning_rate: 1e-3
+  weight_decay: 5e-5
+  momentum: 0.9
+  nesterov: True
+  batch_size: 12
+
+finetune:
+  n_epochs: 50
+  learning_rate: 1e-2
+  weight_decay: 5e-4
+  momentum: 0.9
+  nesterov: True
+  batch_size: 64
+  load_pretrained_weights: False
+  use_mixup: False
+  mixup_alpha: 0.5
+  cutmix_alpha: 0.0
+  mix_prob: 1
+  mixup_label_smoothing: 0.0
+  prediction_mode: mean_pooling
+  threshold: 0.5
+  loss_type: multilabel
+
+dataset:
+  name: HSN
+  width: 1024
+  height: 128
+  num_classes: 21
+  in_channels: 1
+  num_workers: 7
+  val_split: 0.25
+
+path:
+  output_dir: ./output
+  data_dir: /home/phahn/datasets/birdset/HSN/
+  model_dir: ./storage/pretrained_models
+  hf_path: DBD-research-group/BirdSet
