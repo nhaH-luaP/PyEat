@@ -5,7 +5,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --partition=main
 #SBATCH --job-name=EAT-PRE
-#SBATCH --output=/mnt/stud/work/phahn/repositories/EAT/logs/pretrain_XCL.log
+#SBATCH --output=/mnt/stud/work/phahn/repositories/EAT/logs/pretrain_XCL_pathfinder.log
 
 source /mnt/stud/work/python/mconda/39/bin/activate base
 conda activate pyeat
@@ -14,7 +14,7 @@ cd /mnt/stud/work/phahn/repositories/EAT/PyEat/
 
 OUTPUT_DIR=/mnt/stud/work/phahn/repositories/EAT/output/
 MODEL_DIR=/mnt/stud/work/phahn/repositories/EAT/storage/XCL/
-DATA_DIR=/mnt/stud/work/phahn/repositories/EAT/data2/XCL/
+DATA_DIR=/mnt/datasets/bird_recordings/birdset_hf_download/XCL/
 
 echo "Saving results to $OUTPUT_DIR"
 echo "Loading dataset from $DATA_DIR"

@@ -23,8 +23,8 @@ class EATFineTune(L.LightningModule):
         super().__init__()
         self.model = model
         self.linear_classifier = linear_classifier
-        self.prediction_mode = self.args.finetune.prediction_mode
         self.args = args
+        self.prediction_mode = self.args.finetune.prediction_mode
         self.mixup_fn = Mixup(
                 mixup_alpha=args.finetune.mixup_alpha,
                 cutmix_alpha=args.finetune.cutmix_alpha,
@@ -87,7 +87,7 @@ class EATFineTune(L.LightningModule):
         test_metrics = self.calculate_metrics(logits, y)
 
         # Logging
-        self.log_dict({'test_loss' : loss} | {'test_'+key : value for key, value in test_metrics})
+        self.log_dict({'test_loss' : loss} | {'test_'+key : value for key, value in test_metrics.items()})
 
     def configure_optimizers(self):
         optimizer = torch.optim.SGD(
@@ -116,7 +116,7 @@ class EATFineTune(L.LightningModule):
         preds = probas.argmax(-1)
         n_samples = preds.size(0)
         n_correct = torch.sum(preds == labels).item()
-        acc = n_correct/n_samples
+        acc = 0 if n_samples == 0 else n_correct/n_samples
         return acc
     
     def _calculate_mAP(self, output, target):
@@ -138,13 +138,13 @@ class EATFineTune(L.LightningModule):
         preds = (probas >= 0.5).cpu().numpy().astype(int)
 
         acc = self.accuracy_fn(probas, y)
-        ham = self._calculate_hamming_score(y_pred=preds, y_true=y.cpu().numpy().astype(int))
+        #ham = self._calculate_hamming_score(y_pred=preds, y_true=y.cpu().numpy().astype(int))
         mAP, _ = self._calculate_mAP(target=y.cpu(), output=probas.cpu())
         cmAP = self.cmap_fn(logits, y.long())
         auroc = self.auroc_fn(probas, y.long())
         return {
             'accuracy': acc, 
-            'hamming_score' : ham, 
+         #   'hamming_score' : ham, 
             'mAP' : mAP, 
             'cmAP' : cmAP, 
             'AUROC' : auroc

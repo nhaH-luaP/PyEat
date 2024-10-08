@@ -5,7 +5,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --partition=main
 #SBATCH --job-name=EAT-FINE
-#SBATCH --output=/mnt/stud/work/phahn/repositories/EAT/logs/finetune_hsn.log
+#SBATCH --output=/mnt/stud/work/phahn/repositories/EAT/logs/finetune_hsn_ls_longer.log
 
 source /mnt/stud/work/python/mconda/39/bin/activate base
 conda activate pyeat
@@ -26,6 +26,7 @@ srun python finetune.py \
     path.data_dir=$DATA_DIR \
     random_seed=42 \
     task=multilabel \
-    finetune.n_epochs=2 \
+    finetune.n_epochs=10 \
     dataset.name=HSN \
     dataset.num_classes=21 \
+    finetune.prediction_mode=lin_softmax \
