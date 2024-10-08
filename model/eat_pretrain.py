@@ -1,4 +1,6 @@
+import os
 import torch
+import logging
 import lightning as L
 
 
@@ -25,6 +27,13 @@ class EATPretrain(L.LightningModule):
 
         # Return Loss for optimization
         return loss
+    
+    def on_training_epoch_end(self):
+        # Save a model after each epoch to see how pretraining-length influences model performance on downstream task
+        path = os.path.join(self.args.path.model_dir, "pretrained_weights_"+str(self.args.random_seed)+"epoch_"+str(self.current_epoch)+".pth")
+        logging.info(f"Saving model after Epoch {self.current_epoch} to {path}!")
+        state_dict = self.model.state_dict()
+        torch.save(state_dict, path)
     
     def validation_step(self, batch, batch_idx):
         x, _ = batch['input_values'], batch['labels']

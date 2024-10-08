@@ -72,7 +72,7 @@ def main(args):
     # Extract the backbone and save the state dict
     backbone = model.model
     state_dict = backbone.state_dict()
-    torch.save(state_dict, os.path.join(args.path.model_dir, "pretrained_weights_"+str(args.random_seed)+".pth"))
+    torch.save(state_dict, os.path.join(args.path.model_dir, "pretrained_weights_"+str(args.random_seed)+"final.pth"))
 
     # Extract metrics and export into json file
     metrics_dict = {'train_metrics':metrics_callback.train_metrics, 'test_metrics':metrics_callback.test_metrics}
