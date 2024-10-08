@@ -3,10 +3,11 @@ import lightning as L
 
 
 class EATPretrain(L.LightningModule):
-    def __init__(self, model, args):
+    def __init__(self, model, args, n_steps):
         super().__init__()
         self.model = model
         self.args = args
+        self.n_steps = n_steps
 
     def training_step(self, batch, batch_idx):
         x, _ = batch['input_values'], batch['labels']
@@ -49,5 +50,12 @@ class EATPretrain(L.LightningModule):
             nesterov=self.args.pretrain.nesterov, 
             momentum=self.args.pretrain.momentum
             )
-        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=self.args.pretrain.n_epochs)
-        return [optimizer], [lr_scheduler]
+        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=self.n_steps)
+        lr_scheduler_config = {
+            "scheduler": lr_scheduler,
+            "interval": "step",
+            "frequency": 1,
+            "strict": True,
+            "name": None,
+        }
+        return [optimizer], [lr_scheduler_config]

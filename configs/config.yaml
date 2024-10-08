@@ -8,9 +8,9 @@ trust_remote_code: True
 task: multilabel
 
 pretrain:
-  n_epochs: 200
+  n_epochs: 5
   learning_rate: 1e-3
-  weight_decay: 5e-5
+  weight_decay: 5e-4
   momentum: 0.9
   nesterov: True
   batch_size: 12

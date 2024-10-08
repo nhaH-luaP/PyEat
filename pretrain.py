@@ -50,7 +50,8 @@ def main(args):
     # Initialize Model
     logging.info(f">>> Initialize Model.")
     backbone = Data2VecMultiModel(args=args)
-    model = EATPretrain(model=backbone, args=args)
+    n_steps = len(dm.train_dataloader) * args.pretrain.n_epochs
+    model = EATPretrain(model=backbone, args=args, n_steps=n_steps)
 
     # Initialize callback for keeping track of metrics
     metrics_callback = MetricsCallback()
