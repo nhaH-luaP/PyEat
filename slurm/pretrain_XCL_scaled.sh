@@ -5,16 +5,16 @@
 #SBATCH --gres=gpu:1
 #SBATCH --partition=main
 #SBATCH --job-name=EAT-PRE
-#SBATCH --output=/mnt/stud/work/phahn/repositories/EAT/logs/pretrain_XCL_pathfinder.log
+#SBATCH --output=/mnt/stud/work/phahn/repositories/EAT/logs/pretrain_XCL_scaled.log
 
 source /mnt/stud/work/python/mconda/39/bin/activate base
 conda activate pyeat
 
 cd /mnt/stud/work/phahn/repositories/EAT/PyEat/
 
-OUTPUT_DIR=/mnt/stud/work/phahn/repositories/EAT/output/
+OUTPUT_DIR=/mnt/stud/work/phahn/repositories/EAT/output/pretrain/scaled/
 MODEL_DIR=/mnt/stud/work/phahn/repositories/EAT/storage/XCL/
-DATA_DIR=/mnt/datasets/bird_recordings/birdset_hf_download/XCL/
+DATA_DIR=/mnt/stud/work/phahn/repositories/EAT/data2/XCL/
 
 echo "Saving results to $OUTPUT_DIR"
 echo "Loading dataset from $DATA_DIR"
@@ -30,4 +30,4 @@ srun python pretrain.py \
     task=multiclass \
     pretrain.batch_size=16 \
     multimodel.clone_batch=6 \
-    pretrain.n_epochs=5 \
+    pretrain.n_epochs=10 \

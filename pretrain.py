@@ -50,16 +50,17 @@ def main(args):
     # Initialize Model
     logging.info(f">>> Initialize Model.")
     backbone = Data2VecMultiModel(args=args)
-    n_steps = len(dm.train_dataloader) * args.pretrain.n_epochs
+    n_steps = (dm.len_trainset//dm.train_batch_size) * args.pretrain.n_epochs
+    logging.info(f"Total Number of Updates will be {n_steps}!")
     model = EATPretrain(model=backbone, args=args, n_steps=n_steps)
 
     # Initialize callback for keeping track of metrics
     metrics_callback = MetricsCallback()
-    metrics_logger = MetricLogger(log_interval=50)
+    metrics_logger = MetricLogger(log_interval=args.pretrain.log_interval)
 
     # Pretrain the Model
     trainer = L.Trainer(
-        max_epochs=args.finetune.n_epochs, 
+        max_epochs=args.pretrain.n_epochs, 
         callbacks=[metrics_callback, metrics_logger],
         default_root_dir=args.path.output_dir,
         enable_checkpointing=False,
@@ -69,7 +70,7 @@ def main(args):
         )
     trainer.fit(model=model, datamodule=dm)
 
-    # Extract the backbone and save the state dict
+    # Extract the final backbone and save the state dict
     backbone = model.model
     state_dict = backbone.state_dict()
     torch.save(state_dict, os.path.join(args.path.model_dir, "pretrained_weights_"+str(args.random_seed)+"final.pth"))

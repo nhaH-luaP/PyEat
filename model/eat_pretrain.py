@@ -19,7 +19,7 @@ class EATPretrain(L.LightningModule):
 
         #TODO: Which losses need to be extracted and optimized for pretraining EAT?
         cls_loss = result["losses"]["cls"].mean()
-        d2v_loss = result["losses"]["d2v"].mean()
+        d2v_loss = result["losses"]["d2v"].mean() * self.args.pretrain.d2v_scale
         loss = cls_loss + d2v_loss
 
         # Logging
@@ -28,9 +28,9 @@ class EATPretrain(L.LightningModule):
         # Return Loss for optimization
         return loss
     
-    def on_training_epoch_end(self):
+    def on_train_epoch_end(self):
         # Save a model after each epoch to see how pretraining-length influences model performance on downstream task
-        path = os.path.join(self.args.path.model_dir, "pretrained_weights_"+str(self.args.random_seed)+"epoch_"+str(self.current_epoch)+".pth")
+        path = os.path.join(self.args.path.model_dir, "pretrained_weights_"+self.args.pretrain.name_suffix+"_epoch_"+str(self.current_epoch+1)+".pth")
         logging.info(f"Saving model after Epoch {self.current_epoch} to {path}!")
         state_dict = self.model.state_dict()
         torch.save(state_dict, path)
@@ -42,11 +42,11 @@ class EATPretrain(L.LightningModule):
         result = self.model(x)
 
         cls_loss = result["losses"]["cls"].mean()
-        d2v_loss = result["losses"]["d2v"].mean()
+        d2v_loss = result["losses"]["d2v"].mean() * self.args.pretrain.d2v_scale
         loss = cls_loss + d2v_loss
 
         # Logging
-        self.log_dict({'val_loss': loss.item()})
+        self.log_dict({'val_total_loss': loss.item(), 'val_cls_loss': cls_loss.item(), 'val_d2v_loss': d2v_loss.item()})
 
         # Return Loss for optimization
         return loss

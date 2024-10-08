@@ -14,6 +14,9 @@ pretrain:
   momentum: 0.9
   nesterov: True
   batch_size: 12
+  d2v_scale: 1000
+  name_suffix: scaled
+  log_interval: 100
 
 finetune:
   n_epochs: 50
