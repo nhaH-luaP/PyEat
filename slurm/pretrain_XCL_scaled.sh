@@ -1,18 +1,18 @@
 #!/bin/bash
-#SBATCH --mem=32gb
+#SBATCH --mem=64gb
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=8
-#SBATCH --gres=gpu:1
+#SBATCH --cpus-per-task=16
+#SBATCH --gres=gpu:2
 #SBATCH --partition=main
 #SBATCH --job-name=EAT-PRE
-#SBATCH --output=/mnt/stud/work/phahn/repositories/EAT/logs/pretrain_XCL_scaled.log
+#SBATCH --output=/mnt/stud/work/phahn/repositories/EAT/logs/pretrain_XCL_fast.log
 
 source /mnt/stud/work/python/mconda/39/bin/activate base
 conda activate pyeat
 
 cd /mnt/stud/work/phahn/repositories/EAT/PyEat/
 
-OUTPUT_DIR=/mnt/stud/work/phahn/repositories/EAT/output/pretrain/scaled/
+OUTPUT_DIR=/mnt/stud/work/phahn/repositories/EAT/output/pretrain/fast/
 MODEL_DIR=/mnt/stud/work/phahn/repositories/EAT/storage/XCL/
 DATA_DIR=/mnt/stud/work/phahn/repositories/EAT/data2/XCL/
 
@@ -28,6 +28,8 @@ srun python pretrain.py \
     dataset.name=XCL \
     dataset.num_classes=9735 \
     task=multiclass \
-    pretrain.batch_size=16 \
-    multimodel.clone_batch=6 \
-    pretrain.n_epochs=10 \
+    pretrain.batch_size=12 \
+    multimodel.clone_batch=5 \
+    pretrain.n_epochs=5 \
+    modality.mask_prob=0.8 \
+    pretrain.name_suffix=fast \

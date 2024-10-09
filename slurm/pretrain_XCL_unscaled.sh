@@ -28,8 +28,8 @@ srun python pretrain.py \
     dataset.name=XCL \
     dataset.num_classes=9735 \
     task=multiclass \
-    pretrain.batch_size=16 \
-    multimodel.clone_batch=6 \
+    pretrain.batch_size=12 \
+    multimodel.clone_batch=5 \
     pretrain.n_epochs=10 \
     pretrain.d2v_scale=1 \
     pretrain.name_suffix=normal \
