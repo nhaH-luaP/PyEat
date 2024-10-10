@@ -22,8 +22,6 @@ def main(args):
     logging.info('Using config: \n%s', OmegaConf.to_yaml(args))
 
     # Create directories necessary for output and model savings
-    logging.info(f"Best model will be saved in {args.path.model_dir} !")
-    os.makedirs(args.path.model_dir, exist_ok=True)
     os.makedirs(args.path.output_dir, exist_ok=True)
 
     # Enable Reproducability
@@ -50,9 +48,9 @@ def main(args):
     # Initialize Model with potentially pretrained weights
     logging.info(f">>> Initialize Model.")
     backbone = Data2VecMultiModel(args=args)
-    pretrained_weights_path = os.path.join(args.path.model_dir, "pretrained_weights_"+str(args.random_seed)+".pth")
-    if args.finetune.load_pretrained_weights and os.path.exists(pretrained_weights_path):
-        backbone.load_state_dict(torch.load(pretrained_weights_path))
+    if args.finetune.load_pretrained_weights and os.path.exists(args.pretrained_weights_path):
+        logging.info(f"Loading Pretrained Weights from {args.pretrained_weights_path}")
+        backbone.load_state_dict(torch.load(args.pretrained_weights_path))
     linear_classifier = torch.nn.Linear(in_features=args.multimodel.embed_dim, out_features=args.dataset.num_classes)
     model = EATFineTune(model=backbone, linear_classifier=linear_classifier, num_classes=args.dataset.num_classes, args=args)
 

@@ -6,6 +6,7 @@ device: cuda
 random_seed: 42
 trust_remote_code: True
 task: multilabel
+pretrained_weights_path: null
 
 pretrain:
   n_epochs: 5
