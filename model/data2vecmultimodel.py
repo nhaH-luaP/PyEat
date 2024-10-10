@@ -434,7 +434,7 @@ class Data2VecMultiModel(nn.Module):
             "sample_size": sample_size,
         }
 
-        sample_size = result["sample_size"]
+        sample_size = result["sample_size"] #TODO: Isnt that doubled?
 
         # EAT employ utterance-level loss by using mean pooling in patch dimension
         if self.cfg.cls_loss > 0:
@@ -474,43 +474,6 @@ class Data2VecMultiModel(nn.Module):
             reg_loss = self.d2v_loss(dx, y)
             result["losses"]["d2v"] = reg_loss * self.cfg.d2v_loss
 
-        # compute state for logs
-        suffix = ""
-        with torch.no_grad():
-            if encoder_mask is not None:
-                result["masked_pct"] = 1 - (
-                    encoder_mask.ids_keep.size(1) / encoder_mask.ids_restore.size(1)
-                )
-            
-            n = f"pred_var{suffix}"
-            result[n] = self.compute_var(dx.float())
-            if self.ema is not None:
-                for k, v in self.ema.logs.items():
-                    result[k] = v
-
-            y = y.float()
-            result[f"target_var{suffix}"] = self.compute_var(y)
-
-            if self.num_updates > 5000:
-                if result[f"target_var{suffix}"] < self.cfg.min_target_var:
-                    logger.error(
-                        f"target var is {result[f'target_var{suffix}'].item()} < {self.cfg.min_target_var}, exiting ({mode})"
-                    )
-                    raise Exception(
-                        f"target var is {result[f'target_var{suffix}'].item()} < {self.cfg.min_target_var}, exiting ({mode})"
-                    )
-
-                for k in result.keys():
-                    if k.startswith("pred_var") and result[k] < self.cfg.min_pred_var:
-                        logger.error(
-                            f"{k} is {result[k].item()} < {self.cfg.min_pred_var}, exiting ({mode})"
-                        )
-                        raise Exception(
-                            f"{k} is {result[k].item()} < {self.cfg.min_pred_var}, exiting ({mode})"
-                        )
-
-            result["ema_decay"] = self.ema.get_decay() * 1000
-
         return result
 
 
@@ -526,6 +489,8 @@ class Data2VecMultiModel(nn.Module):
 
         return x
 
+
+    # That is the loss function for both utterance and Frame Loss
     def d2v_loss(self, x, y):
         x = x.view(-1, x.size(-1)).float()
         y = y.view(-1, x.size(-1))
@@ -545,7 +510,7 @@ class Data2VecMultiModel(nn.Module):
         return reg_loss
 
     
-    # average top-k layers output from teacher model
+    # Average top-k layers output from teacher model to provide a target for the student
     def make_targets(self, y, num_layers):
 
         with torch.no_grad():
@@ -590,33 +555,3 @@ class Data2VecMultiModel(nn.Module):
             y = F.instance_norm(y.transpose(1, 2)).transpose(1, 2)
 
         return y
-
-    @staticmethod
-    def compute_var(y):
-        y = y.view(-1, y.size(-1))
-        if dist.is_initialized():
-            zc = torch.tensor(y.size(0)).cuda()
-            zs = y.sum(dim=0)
-            zss = (y**2).sum(dim=0)
-
-            dist.all_reduce(zc)
-            dist.all_reduce(zs)
-            dist.all_reduce(zss)
-
-            var = zss / (zc - 1) - (zs**2) / (zc * (zc - 1))
-            return torch.sqrt(var + 1e-6).mean()
-        else:
-            return torch.sqrt(y.var(dim=0) + 1e-6).mean()
-
-    def extract_features(
-        self, source, mode=None, padding_mask=None, mask=False, remove_extra_tokens=True
-    ):
-        res = self.forward(
-            source,
-            mode=mode,
-            padding_mask=padding_mask,
-            mask=mask,
-            features_only=True,
-            remove_extra_tokens=remove_extra_tokens,
-        )
-        return res

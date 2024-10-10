@@ -19,12 +19,13 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 
 class EATFineTune(L.LightningModule):
-    def __init__(self, model, linear_classifier, num_classes, args):
+    def __init__(self, model, linear_classifier, num_classes, args, label_weights, device='cuda'):
         super().__init__()
         self.model = model
         self.linear_classifier = linear_classifier
         self.args = args
         self.prediction_mode = self.args.finetune.prediction_mode
+        self.label_weights = label_weights.to(device) if args.finetune.class_weighted_loss else None
         self.mixup_fn = Mixup(
                 mixup_alpha=args.finetune.mixup_alpha,
                 cutmix_alpha=args.finetune.cutmix_alpha,
@@ -36,7 +37,7 @@ class EATFineTune(L.LightningModule):
                 num_classes=num_classes,
             )
 
-        self.accuracy_fn = TopKAccuracy(topk=1, threshold=args.finetune.threshold)
+        self.accuracy_fn = TopKAccuracy(topk=1, threshold=args.finetune.threshold, include_nocalls=True)
         self.auroc_fn = MultilabelAUROC(num_labels=num_classes)
         self.cmap_fn = MultilabelAveragePrecision(num_labels=num_classes, threshold=None, average="macro")
 
@@ -50,9 +51,9 @@ class EATFineTune(L.LightningModule):
 
         # Calculate Loss
         if self.args.finetune.loss_type == 'multilabel' or self.args.finetune.use_mixup:
-            loss = nn.functional.binary_cross_entropy_with_logits(logits, y)
+            loss = nn.functional.binary_cross_entropy_with_logits(logits, y, weight=self.label_weights)
         else:
-            loss = nn.functional.cross_entropy(logits, y)
+            loss = nn.functional.cross_entropy(logits, y, weight=self.label_weights)
 
         # Logging
         self.log_dict({'train_loss': loss.item()})
@@ -137,16 +138,17 @@ class EATFineTune(L.LightningModule):
         probas = torch.nn.functional.sigmoid(logits)
         preds = (probas >= 0.5).cpu().numpy().astype(int)
 
-        acc = self.accuracy_fn(probas, y)
-        #ham = self._calculate_hamming_score(y_pred=preds, y_true=y.cpu().numpy().astype(int))
+        acc = self.accuracy_fn(probas, y).item()
+        ham = self._calculate_hamming_score(y_pred=preds, y_true=y.cpu().numpy().astype(int))
         mAP, _ = self._calculate_mAP(target=y.cpu(), output=probas.cpu())
-        cmAP = self.cmap_fn(logits, y.long())
-        auroc = self.auroc_fn(probas, y.long())
+        cmAP = self.cmap_fn(logits, y.long()).item()
+        auroc = self.auroc_fn(probas, y.long()).item()
+
         return {
-            'accuracy': acc, 
-         #   'hamming_score' : ham, 
+            'top1': acc, 
+            'ham' : ham, 
             'mAP' : mAP, 
-            'cmAP' : cmAP, 
+            'cmAP' : 0 if (cmAP != cmAP) else cmAP, 
             'AUROC' : auroc
         }
 
