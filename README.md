@@ -1,6 +1,6 @@
 # PyEat
 
-This repository contains an implementation of the EAT student-teacher model written in PyTorch and Lighting AI specifically for spectogram images.
+This repository contains an implementation of the EAT student-teacher model written in PyTorch and Lighting AI specifically for spectogram images. It contains code snippets from both the [EAT-Repository](https://github.com/cwx-worst-one/EAT/tree/main) and the [Fairseq-Repository](https://github.com/facebookresearch/fairseq/tree/main) but eliminates the usual workflow of Fairseq-Models for a better readability of code.
 
 ## Usage
 
