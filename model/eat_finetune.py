@@ -60,21 +60,20 @@ class EATFineTune(L.LightningModule):
 
         # Return Loss for optimization
         return loss
-    
+
     def validation_step(self, batch, batch_idx):
         # Get logits
         x, y = batch['input_values'], batch['labels']
         logits = self.get_logits(x)
 
         # Calculate Loss
-        if self.args.finetune.loss_type == 'multilabel':
-            loss = nn.functional.binary_cross_entropy_with_logits(logits, y)
-        else:
-            loss = nn.functional.cross_entropy(logits, y)
+        loss = nn.functional.binary_cross_entropy_with_logits(logits, y)
 
-        acc = self._calculate_accuracy(logits, y.argmax(-1))
+        # Calculate metrics
+        test_metrics = self.calculate_metrics(logits, y)
 
-        self.log_dict({'val_loss': loss, 'val_acc':acc})
+        # Logging
+        self.log_dict({'test_loss' : loss} | {'test_'+key : value for key, value in test_metrics.items()})
 
     def test_step(self, batch, batch_idx):
         # Get logits
@@ -146,7 +145,7 @@ class EATFineTune(L.LightningModule):
 
         return {
             'top1': acc, 
-            'ham' : ham, 
+            'ham' : 0 if (ham != ham) else ham, 
             'mAP' : mAP, 
             'cmAP' : 0 if (cmAP != cmAP) else cmAP, 
             'AUROC' : auroc

@@ -79,7 +79,7 @@ class ModalitySpecificEncoder(nn.Module):
             ).normal_(0, self.modality_cfg.mask_noise_std)
 
             x_ = torch.cat([x[:, num_extra:], mask_tokens], dim=1)
-            x = torch.gather(x_, dim=1, index=mask_info.ids_restore.to(x.device)) # ADDED THE .to(x.device) for debugging purposes
+            x = torch.gather(x_, dim=1, index=mask_info.ids_restore) # ADDED THE .to(x.device) for debugging purposes
 
             if self.modality_cfg.decoder.add_positions_masked:
                 assert self.fixed_positional_encoder is not None
@@ -185,9 +185,6 @@ class ModalitySpecificEncoder(nn.Module):
         
         if self.extra_tokens is not None:
             num = self.extra_tokens.size(1)
-            #TODO: Workaround for device problem, needs better fix later
-            if x.device != self.extra_tokens.device:
-                x = x.to(self.extra_tokens.device)
             x = torch.cat([self.extra_tokens.expand(x.size(0), -1, -1), x], dim=1)
             if masked_padding_mask is not None:
                 # B x T
@@ -274,7 +271,7 @@ class ModalitySpecificEncoder(nn.Module):
                         indices=mask_seed.ids if mask_seed is not None else None,
                     )
 
-                    mask = torch.from_numpy(mask).to(device=x.device)
+                    mask = torch.from_numpy(mask)#.to(device=x.device)
                     if self.modality_cfg.inverse_mask:
                         mask = 1 - mask
                     mask_info = self.make_maskinfo(x, mask)
@@ -306,9 +303,8 @@ class ModalitySpecificEncoder(nn.Module):
         if shape is not None:
             x_unmasked = None
         else:
-            #TODO: Workaround for device issues
             ids_keep = ids_keep.unsqueeze(-1).expand(-1, -1, D)
-            x_unmasked = torch.gather(x.cpu(), dim=1, index=ids_keep)
+            x_unmasked = torch.gather(x, dim=1, index=ids_keep)
 
         mask_info = MaskInfo(
             x_unmasked=x_unmasked,
@@ -341,7 +337,7 @@ class ModalitySpecificEncoder(nn.Module):
             )
             mask_channel = (
                 torch.from_numpy(mask_channel)
-                .to(x.device)
+                #.to(x.device)
                 .unsqueeze(1)
                 .expand(-1, T, -1)
             )

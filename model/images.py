@@ -214,6 +214,10 @@ class ImageEncoder(ModalitySpecificEncoder):
                 require_same_masks=True,
                 mask_dropout=self.modality_cfg.mask_dropout
             )
+
+            #TODO: Put mask on same device as x if not already
+            if mask.device != x.device:
+                mask = mask.to(x.device)
             
 
         mask_info = self.make_maskinfo(x, mask, shape)

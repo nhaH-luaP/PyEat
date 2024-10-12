@@ -555,3 +555,9 @@ class Data2VecMultiModel(nn.Module):
             y = F.instance_norm(y.transpose(1, 2)).transpose(1, 2)
 
         return y
+    
+    def remove_pretrain_components(self):
+        self.ema = None
+        self.shared_decoder = None
+        self.modality_encoder.decoder = None
+        self.recon_proj = None
