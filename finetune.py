@@ -55,8 +55,6 @@ def main(args):
     dm.setup(stage="fit")
     dm.setup(stage="test")
 
-    dm.train_dataset = Subset(dm.train_dataset, range(500))
-
     # Initialize Model with potentially pretrained weights
     logging.info(f">>> Initialize Model.")
     backbone = Data2VecMultiModel(args=args)
