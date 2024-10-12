@@ -9,6 +9,8 @@ import json
 import torch
 from omegaconf import OmegaConf
 
+from torch.utils.data import Subset
+
 import lightning as L
 
 from birdset.datamodule.base_datamodule import DatasetConfig, LoadersConfig, BirdSetTransformsWrapper
@@ -52,6 +54,8 @@ def main(args):
     dm.prepare_data()
     dm.setup(stage="fit")
     dm.setup(stage="test")
+
+    dm.train_dataset = Subset(dm.train_dataset, range(500))
 
     # Initialize Model with potentially pretrained weights
     logging.info(f">>> Initialize Model.")

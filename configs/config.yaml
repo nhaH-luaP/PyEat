@@ -36,6 +36,7 @@ finetune:
   threshold: 0.5
   loss_type: multilabel
   class_weighted_loss: False
+  train_linear_only: True
 
 dataset:
   name: HSN

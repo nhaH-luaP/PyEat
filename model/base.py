@@ -79,7 +79,7 @@ class ModalitySpecificEncoder(nn.Module):
             ).normal_(0, self.modality_cfg.mask_noise_std)
 
             x_ = torch.cat([x[:, num_extra:], mask_tokens], dim=1)
-            x = torch.gather(x_, dim=1, index=mask_info.ids_restore) # ADDED THE .to(x.device) for debugging purposes
+            x = torch.gather(x_, dim=1, index=mask_info.ids_restore)
 
             if self.modality_cfg.decoder.add_positions_masked:
                 assert self.fixed_positional_encoder is not None
@@ -271,7 +271,7 @@ class ModalitySpecificEncoder(nn.Module):
                         indices=mask_seed.ids if mask_seed is not None else None,
                     )
 
-                    mask = torch.from_numpy(mask)#.to(device=x.device)
+                    mask = torch.from_numpy(mask)
                     if self.modality_cfg.inverse_mask:
                         mask = 1 - mask
                     mask_info = self.make_maskinfo(x, mask)
@@ -337,7 +337,6 @@ class ModalitySpecificEncoder(nn.Module):
             )
             mask_channel = (
                 torch.from_numpy(mask_channel)
-                #.to(x.device)
                 .unsqueeze(1)
                 .expand(-1, T, -1)
             )

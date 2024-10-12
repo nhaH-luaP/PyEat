@@ -26,6 +26,7 @@ class EATFineTune(L.LightningModule):
         self.args = args
         self.prediction_mode = self.args.finetune.prediction_mode
         self.label_weights = label_weights.to(device) if args.finetune.class_weighted_loss else None
+        self.train_linear_only = args.finetune.train_linear_only
         self.mixup_fn = Mixup(
                 mixup_alpha=args.finetune.mixup_alpha,
                 cutmix_alpha=args.finetune.cutmix_alpha,
@@ -41,15 +42,25 @@ class EATFineTune(L.LightningModule):
         self.auroc_fn = MultilabelAUROC(num_labels=num_classes)
         self.cmap_fn = MultilabelAveragePrecision(num_labels=num_classes, threshold=None, average="macro")
 
+
     def training_step(self, batch, batch_idx):
-        # Get logits of either normal or mixed samples
-        # Shape divisible by two is important due to mixup workflow to have an evenly shaped batch
         x, y = batch['input_values'], batch['labels']
+
+        # For mixup, shape divisible by two is important due to mixup workflow to have an evenly shaped batch
         if x.shape[0] % 2 == 0 and self.args.finetune.use_mixup: 
             x, y = self.mixup_fn(x, y)
-        logits = self.get_logits(x)
+        
+        # Get logits and collect gradients depending on if you only want to finetune last layer or more.
+        if self.train_linear_only:
+            with torch.no_grad():
+                result = self.model(x, features_only=True, remove_extra_tokens=True, mask=False)
+        else:
+            result = self.model(x, features_only=True, remove_extra_tokens=True, mask=False)
+        features = result['x']
+        reduced_features = self.reduce_features(features)
+        logits = self.linear_classifier(reduced_features)
 
-        # Calculate Loss
+        # Calculate Loss differently depending on the training setting
         if self.args.finetune.loss_type == 'multilabel' or self.args.finetune.use_mixup:
             loss = nn.functional.binary_cross_entropy_with_logits(logits, y, weight=self.label_weights)
         else:
@@ -61,10 +72,15 @@ class EATFineTune(L.LightningModule):
         # Return Loss for optimization
         return loss
 
+
     def validation_step(self, batch, batch_idx):
         # Get logits
         x, y = batch['input_values'], batch['labels']
-        logits = self.get_logits(x)
+        with torch.no_grad():
+            result = self.model(x, features_only=True, remove_extra_tokens=True, mask=False)
+            features = result['x']
+            reduced_features = self.reduce_features(features)
+            logits = self.linear_classifier(reduced_features)
 
         # Calculate Loss
         loss = nn.functional.binary_cross_entropy_with_logits(logits, y)
@@ -75,23 +91,10 @@ class EATFineTune(L.LightningModule):
         # Logging
         self.log_dict({'test_loss' : loss} | {'test_'+key : value for key, value in test_metrics.items()})
 
-    def test_step(self, batch, batch_idx):
-        # Get logits
-        x, y = batch['input_values'], batch['labels']
-        logits = self.get_logits(x)
-
-        # Calculate Loss
-        loss = nn.functional.binary_cross_entropy_with_logits(logits, y)
-
-        # Calculate metrics
-        test_metrics = self.calculate_metrics(logits, y)
-
-        # Logging
-        self.log_dict({'test_loss' : loss} | {'test_'+key : value for key, value in test_metrics.items()})
 
     def configure_optimizers(self):
         optimizer = torch.optim.SGD(
-            params=self.linear_classifier.parameters(), 
+            params=self.linear_classifier.parameters() if self.train_linear_only else self.parameters(), 
             lr=self.args.finetune.learning_rate, 
             weight_decay=self.args.finetune.weight_decay, 
             nesterov=self.args.finetune.nesterov, 
@@ -99,18 +102,7 @@ class EATFineTune(L.LightningModule):
             )
         lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=self.args.finetune.n_epochs)
         return [optimizer], [lr_scheduler]
-    
-    def get_logits(self, x):
-        with torch.no_grad():
-            result = self.model(x, features_only=True, remove_extra_tokens=True, mask=False)
-        features = result['x']
 
-        # Different prediction modes to work with the features resulting from the fairseq model. Shape: (Batch-Size, Dim1, Dim2)
-        features = self.reduce_features(features)
-
-        logits = self.linear_classifier(features)
-        return logits
-    
     def _calculate_accuracy(self, logits, labels):
         probas = logits.softmax(-1)
         preds = probas.argmax(-1)
@@ -128,24 +120,16 @@ class EATFineTune(L.LightningModule):
         mean_ap = np.nanmean(list(ap_values.values()))
         return mean_ap, ap_values
     
-    def _calculate_hamming_score(self, y_true, y_pred):
-        return (
-            (y_true & y_pred).sum(axis=1) / (y_true | y_pred).sum(axis=1)
-        ).mean()
-    
     def calculate_metrics(self, logits, y):
         probas = torch.nn.functional.sigmoid(logits)
-        preds = (probas >= 0.5).cpu().numpy().astype(int)
 
         acc = self.accuracy_fn(probas, y).item()
-        ham = self._calculate_hamming_score(y_pred=preds, y_true=y.cpu().numpy().astype(int))
         mAP, _ = self._calculate_mAP(target=y.cpu(), output=probas.cpu())
         cmAP = self.cmap_fn(logits, y.long()).item()
         auroc = self.auroc_fn(probas, y.long()).item()
 
         return {
             'top1': acc, 
-            'ham' : 0 if (ham != ham) else ham, 
             'mAP' : mAP, 
             'cmAP' : 0 if (cmAP != cmAP) else cmAP, 
             'AUROC' : auroc
