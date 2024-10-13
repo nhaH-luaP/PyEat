@@ -38,7 +38,7 @@ class EATFineTune(L.LightningModule):
                 num_classes=num_classes,
             )
 
-        self.accuracy_fn = TopKAccuracy(topk=1, threshold=args.finetune.threshold, include_nocalls=True)
+        self.accuracy_fn = TopKAccuracy(topk=1, threshold=args.finetune.threshold, include_nocalls=False)
         self.auroc_fn = MultilabelAUROC(num_labels=num_classes)
         self.cmap_fn = MultilabelAveragePrecision(num_labels=num_classes, threshold=None, average="macro")
 
@@ -102,14 +102,6 @@ class EATFineTune(L.LightningModule):
             )
         lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=self.args.finetune.n_epochs)
         return [optimizer], [lr_scheduler]
-
-    def _calculate_accuracy(self, logits, labels):
-        probas = logits.softmax(-1)
-        preds = probas.argmax(-1)
-        n_samples = preds.size(0)
-        n_correct = torch.sum(preds == labels).item()
-        acc = 0 if n_samples == 0 else n_correct/n_samples
-        return acc
     
     def _calculate_mAP(self, output, target):
         classes_num = target.shape[-1]
@@ -129,10 +121,10 @@ class EATFineTune(L.LightningModule):
         auroc = self.auroc_fn(probas, y.long()).item()
 
         return {
-            'top1': acc, 
-            'mAP' : mAP, 
+            'top1': 0 if (acc != acc) else acc, 
+            'mAP' : 0 if (mAP != mAP) else mAP, 
             'cmAP' : 0 if (cmAP != cmAP) else cmAP, 
-            'AUROC' : auroc
+            'AUROC' : 0 if (auroc != auroc) else auroc
         }
 
     def reduce_features(self, features):
