@@ -5,16 +5,16 @@
 #SBATCH --gres=gpu:1
 #SBATCH --partition=main
 #SBATCH --job-name=EAT-FINE
-#SBATCH --output=/mnt/stud/work/phahn/repositories/EAT/logs/finetune_nbp.log
+#SBATCH --output=/mnt/stud/work/phahn/repositories/EAT/logs/finetune_nes.log
 
 source /mnt/stud/work/python/mconda/39/bin/activate base
 conda activate pyeat
 
 cd /mnt/stud/work/phahn/repositories/EAT/PyEat/
 
-OUTPUT_DIR=/mnt/stud/work/phahn/repositories/EAT/output/finetune/NBP/
+OUTPUT_DIR=/mnt/stud/work/phahn/repositories/EAT/output/finetune/NES/
 MODEL_DIR=/mnt/stud/work/phahn/repositories/EAT/storage/
-DATA_DIR=/mnt/stud/work/phahn/repositories/EAT/data/NBP/
+DATA_DIR=/mnt/stud/work/phahn/repositories/EAT/data/NES/
 MODEL_PATH=/mnt/stud/work/phahn/repositories/EAT/storage/XCL/pretrained_weights_scaled_epoch_3.pth
 
 echo "Saving results to $OUTPUT_DIR"
@@ -29,6 +29,6 @@ srun python finetune.py \
     random_seed=42 \
     task=multilabel \
     finetune.n_epochs=50 \
-    dataset.name=NBP \
-    dataset.num_classes=51 \
+    dataset.name=NES \
+    dataset.num_classes=89 \
     finetune.load_pretrained_weights=True \

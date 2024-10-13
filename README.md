@@ -23,6 +23,11 @@ Decisive Hyperparameters:
  - All Hyperparameters of the shape ```pretrain.*``` controll settings concerning the pretraining like hyperparameters for optimizer and lr_scheduler.
  - All Hyperparameters of the shape ```finetune.*```, again, controll settings concerning the finetuning like hyperparameters for optimizer and lr_scheduler. In addition, we provide settings such as ```load_pretrained_weights``` to use a pretrained model, ```prediction_mode``` for different ways to generate Features out of the Transformer-Encoder or ```class_weighted_loss``` to account for strongly imbalanced datasets such as HSN.
 
-## Current Stand of Things
+## Current Challenges
 
-Currently, this repository is still in development and tests are running on a cluster. The results and potential debugging are available afterwards, which is approximatly 14 Days for pretraining and another two days for finetuning.
+ - Most runs on a compute cluster (except HSN and XCL) wont progress when preparing the data using the birdset repository. Main assumption why this is the case is the slowness of the cluster itself.
+ - A lot of studies are required to debug the repository in a greater setting. A few of these are listed below:
+  - Investigate different prediction modes
+  - Investigate the usage of mixup for improved finetuning
+  - Investigate different checkpoints of pretraining to see if training longer helps
+  - Investigate different methods for finetuning such as linear evaluation vs full model finetuning on downstream task or training multiclass vs. multilabel setting.

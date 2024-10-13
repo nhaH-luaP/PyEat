@@ -24,9 +24,11 @@ class EATFineTune(L.LightningModule):
         self.model = model
         self.linear_classifier = linear_classifier
         self.args = args
+        
         self.prediction_mode = self.args.finetune.prediction_mode
         self.label_weights = label_weights.to(device) if args.finetune.class_weighted_loss else None
         self.train_linear_only = args.finetune.train_linear_only
+
         self.mixup_fn = Mixup(
                 mixup_alpha=args.finetune.mixup_alpha,
                 cutmix_alpha=args.finetune.cutmix_alpha,
