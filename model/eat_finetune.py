@@ -53,9 +53,9 @@ class EATFineTune(L.LightningModule):
         # Get logits and collect gradients depending on if you only want to finetune last layer or more.
         if self.train_linear_only:
             with torch.no_grad():
-                result = self.model(x, features_only=True, remove_extra_tokens=True, mask=False)
+                result = self.model(x, features_only=True, remove_extra_tokens=(self.prediction_mode == "cls_token"), mask=False)
         else:
-            result = self.model(x, features_only=True, remove_extra_tokens=True, mask=False)
+            result = self.model(x, features_only=True, remove_extra_tokens=(self.prediction_mode == "cls_token"), mask=False)
         features = result['x']
         reduced_features = self.reduce_features(features)
         logits = self.linear_classifier(reduced_features)
@@ -77,7 +77,7 @@ class EATFineTune(L.LightningModule):
         # Get logits
         x, y = batch['input_values'], batch['labels']
         with torch.no_grad():
-            result = self.model(x, features_only=True, remove_extra_tokens=True, mask=False)
+            result = self.model(x, features_only=True, remove_extra_tokens=(self.prediction_mode == "cls_token"), mask=False)
             features = result['x']
             reduced_features = self.reduce_features(features)
             logits = self.linear_classifier(reduced_features)
