@@ -201,25 +201,4 @@ class ImageEncoder(ModalitySpecificEncoder):
         return x, mask_info
 
     def decoder_input(self, x, mask_info):
-        if (
-            not self.modality_cfg.transformer_decoder
-            or not self.modality_cfg.enc_dec_transformer
-        ):
-            return super().decoder_input(x, mask_info)
-
-        inp_drop = self.modality_cfg.decoder.input_dropout
-        if inp_drop > 0:
-            x = F.dropout(x, inp_drop, training=self.training, inplace=True)
-
-        kv = x[:, self.modality_cfg.num_extra_tokens :]
-
-        assert self.fixed_positional_encoder is not None
-        pos = self.fixed_positional_encoder(x, None).expand(x.size(0), -1, -1)
-
-        mask = mask_info.mask.bool()
-        if self.modality_cfg.decoder.add_positions_all:
-            kv = kv + pos[~mask].view(kv.shape)
-
-        q = pos[mask].view(x.size(0), -1, x.size(-1))
-
-        return q, kv
+        return super().decoder_input(x, mask_info)
