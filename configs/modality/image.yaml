@@ -35,8 +35,6 @@ embed_dim: 768
 
 fixed_positions: True
 
-transformer_decoder: False
-enc_dec_transformer: False
 target_length: 1024
 target_height: 128
 max_length: 768

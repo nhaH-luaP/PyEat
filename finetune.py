@@ -1,6 +1,6 @@
 from model.data2vecmultimodel import Data2VecMultiModel
 from model.eat_finetune import EATFineTune
-from utils import seed_everything, MetricsCallback, MetricLogger
+from utils.utils import seed_everything, MetricsCallback, MetricLogger
 
 import hydra
 import os
@@ -9,11 +9,9 @@ import json
 import torch
 from omegaconf import OmegaConf
 
-from torch.utils.data import Subset
-
 import lightning as L
 
-from birdset.datamodule.base_datamodule import DatasetConfig, LoadersConfig, BirdSetTransformsWrapper
+from birdset.datamodule.base_datamodule import DatasetConfig, LoadersConfig
 from birdset.datamodule.birdset_datamodule import BirdSetDataModule
 from birdset.configs.datamodule_configs import LoaderConfig
 
@@ -40,17 +38,14 @@ def main(args):
             classlimit=500,
             eventlimit=5,
             sampling_rate=32000,
+            class_weights_sampler=args.finetune.use_weighted_sampler
         ),
         loaders=LoadersConfig(train=LoaderConfig(batch_size=args.finetune.batch_size, shuffle=True, drop_last=True),
                               valid=LoaderConfig(batch_size=64, shuffle=False),
                               test=LoaderConfig(batch_size=64, shuffle=False)),
-        transforms=BirdSetTransformsWrapper(
-            task=args.task,
-            #spectrogram_augmentations={'normalize':transforms.Normalize(mean=10.3461275100708, std=6.643364906311035)},
-            )
     )
 
-    # Setup both training and test data to be able to test after each epoch
+    # Setup both training and test data to be able to test after each epoch through the validation step
     dm.prepare_data()
     dm.setup(stage="fit")
     dm.setup(stage="test")
@@ -65,7 +60,7 @@ def main(args):
     # Remove components not required for finetuning
     backbone.remove_pretrain_components()
     linear_classifier = torch.nn.Linear(in_features=args.multimodel.embed_dim, out_features=args.dataset.num_classes)
-    model = EATFineTune(model=backbone, linear_classifier=linear_classifier, num_classes=args.dataset.num_classes, args=args, label_weights=None)
+    model = EATFineTune(model=backbone, linear_classifier=linear_classifier, num_classes=args.dataset.num_classes, args=args)
 
     # Initialize callback for keeping track of metrics
     metrics_callback = MetricsCallback()
@@ -83,12 +78,8 @@ def main(args):
         )
     trainer.fit(model=model, train_dataloaders=dm.train_dataloader(), val_dataloaders=dm.test_dataloader())
 
-    # Evaluate Model
-    #dm.setup(stage='test')
-    #trainer.test(model=model, datamodule=dm)
-
     # Extract metrics and export into json file
-    metrics_dict = {'train_metrics':metrics_callback.train_metrics}#, 'test_metrics':metrics_callback.test_metrics}
+    metrics_dict = {'train_metrics':metrics_callback.train_metrics}
     with open(os.path.join(args.path.output_dir, 'results.json'), 'w') as f:
         json.dump(metrics_dict, f)
 

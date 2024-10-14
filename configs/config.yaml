@@ -15,8 +15,8 @@ pretrain:
   momentum: 0.9
   nesterov: True
   batch_size: 12
-  d2v_scale: 1000
-  name_suffix: scaled
+  d2v_scale: 1000 # For scaling up the d2v loss as its mean is significantly lower than cls_loss
+  name_suffix: scaled # For Saving a model after validation
   log_interval: 100
 
 finetune:
@@ -27,16 +27,18 @@ finetune:
   nesterov: True
   batch_size: 64
   load_pretrained_weights: False
-  use_mixup: False
+  use_mixup: False # Use Mixup during model training to potentially simulate soundscape data, following hp's are for this aswell
   mixup_alpha: 0.5
   cutmix_alpha: 0.0
   mix_prob: 1
   mixup_label_smoothing: 0.0
-  prediction_mode: mean_pooling
-  threshold: 0.5
-  loss_type: multilabel
-  class_weighted_loss: False
-  train_linear_only: True
+  prediction_mode: cls_token # Different ways to process the features extracted by the model before processing them to logits
+  threshold: 0.5 # Threshhold for a probability to count as a positive label (1) instead of a negative label (0)
+  loss_type: multilabel # Loss Type for training the model on the downstream task. As evaluation will be on soundscape data, its intuitive to also train in a multilabel setting. However, it may be better to still do multiclass?
+  train_linear_only: True # Decides between finetuning the whole backbone or only training the linear layer for classification.
+  use_weighted_sampler: False # Sampler to counteract uneven class distributions
+  regularize_negatives: False # Experimental: Weighs the positive class (1) stronger for finetuning then negatives due to the positive class scarcity in labels.
+  sigma: 0.1 # Sigma is the hyperparameter defining the weight for negatives (sigma) and positive (1 + sigma) class. The smaller sigma, the less negative instances influence loss.
 
 dataset:
   name: HSN

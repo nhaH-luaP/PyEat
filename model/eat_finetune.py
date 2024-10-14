@@ -1,33 +1,33 @@
 from .mixup import Mixup
 from .utils import TopKAccuracy
 
-import numpy as np
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 import lightning as L
 
-from torchmetrics.classification import MultilabelAUROC
+from torchmetrics.classification import MultilabelAUROC, Accuracy
 from torchmetrics.classification.average_precision import MultilabelAveragePrecision
-
-from sklearn.metrics import average_precision_score
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
 
 class EATFineTune(L.LightningModule):
-    def __init__(self, model, linear_classifier, num_classes, args, label_weights, device='cuda'):
+    def __init__(self, model, linear_classifier, num_classes, args, device='cuda'):
         super().__init__()
         self.model = model
         self.linear_classifier = linear_classifier
         self.args = args
         
-        self.prediction_mode = self.args.finetune.prediction_mode
-        self.label_weights = label_weights.to(device) if args.finetune.class_weighted_loss else None
+        self.prediction_mode = args.finetune.prediction_mode
         self.train_linear_only = args.finetune.train_linear_only
+        self.num_classes = num_classes
+        
+        self.loss_type = args.finetune.loss_type
+        self.regularize_negatives = args.finetune.regularize_negatives
+        self.sigma = args.finetune.sigma
 
         self.mixup_fn = Mixup(
                 mixup_alpha=args.finetune.mixup_alpha,
@@ -39,10 +39,11 @@ class EATFineTune(L.LightningModule):
                 label_smoothing=args.finetune.mixup_label_smoothing,
                 num_classes=num_classes,
             )
-
-        self.accuracy_fn = TopKAccuracy(topk=1, threshold=args.finetune.threshold, include_nocalls=False)
+        self.use_mixup = args.finetune.use_mixup
+        
+        self.accuracy_fn = TopKAccuracy()
         self.auroc_fn = MultilabelAUROC(num_labels=num_classes)
-        self.cmap_fn = MultilabelAveragePrecision(num_labels=num_classes, threshold=None, average="macro")
+        self.cmap_fn = MultilabelAveragePrecision(num_labels=num_classes)
 
 
     def training_step(self, batch, batch_idx):
@@ -62,14 +63,24 @@ class EATFineTune(L.LightningModule):
         reduced_features = self.reduce_features(features)
         logits = self.linear_classifier(reduced_features)
 
-        # Calculate Loss differently depending on the training setting
-        if self.args.finetune.loss_type == 'multilabel' or self.args.finetune.use_mixup:
-            loss = nn.functional.binary_cross_entropy_with_logits(logits, y, weight=self.label_weights)
+        # Calculate Loss differently depending on the chosen loss_type (multiclass or multilabel)
+        if self.loss_type == 'multilabel' or self.use_mixup:
+            loss = nn.functional.binary_cross_entropy_with_logits(logits, y, reduction='none' if self.regularize_negatives else 'mean')
+            #TODO: Experimental. Trying to reduce the impact of negative class instances on loss.
+            if self.regularize_negatives:
+                weight = y + self.sigma
+                loss = loss * weight
+                loss = loss.mean()
+        elif self.loss_type == 'multiclass':
+            loss = nn.functional.cross_entropy(logits, y)
         else:
-            loss = nn.functional.cross_entropy(logits, y, weight=self.label_weights)
+            raise AssertionError('Loss Type not found!')
+
+        # Metrics
+        train_metrics = self.calculate_metrics(logits, y)
 
         # Logging
-        self.log_dict({'train_loss': loss.item()})
+        self.log_dict({'train_loss' : loss.item()} | {'train_'+key : value for key, value in train_metrics.items()})
 
         # Return Loss for optimization
         return loss
@@ -105,36 +116,29 @@ class EATFineTune(L.LightningModule):
         lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=self.args.finetune.n_epochs)
         return [optimizer], [lr_scheduler]
     
-    def _calculate_mAP(self, output, target):
-        classes_num = target.shape[-1]
-        ap_values = {}
-        for k in range(classes_num):
-            avg_precision = average_precision_score(target[:, k], output[:, k], average=None)
-            ap_values[k] = avg_precision
-        mean_ap = np.nanmean(list(ap_values.values()))
-        return mean_ap, ap_values
-    
+
     def calculate_metrics(self, logits, y):
         probas = torch.nn.functional.sigmoid(logits)
-
         acc = self.accuracy_fn(probas, y).item()
-        mAP, _ = self._calculate_mAP(target=y.cpu(), output=probas.cpu())
         cmAP = self.cmap_fn(logits, y.long()).item()
         auroc = self.auroc_fn(probas, y.long()).item()
 
         return {
             'top1': 0 if (acc != acc) else acc, 
-            'mAP' : 0 if (mAP != mAP) else mAP, 
             'cmAP' : 0 if (cmAP != cmAP) else cmAP, 
             'AUROC' : 0 if (auroc != auroc) else auroc
         }
 
+
     def reduce_features(self, features):
-        if self.prediction_mode == "mean_pooling":
+        # Incoming Features have the shape (Batch Size, Number of Patches + Extra Tokens, Embedding Size)
+        # This feature reduction method reduces the features coming from the Data2Vec model according to different schemes
+        # Mean Pooling Averages over all 
+        if self.prediction_mode == "mean_pooling": # mean_pooling averages over all patches
             features = features.mean(dim=1)
-        elif self.prediction_mode == "cls_token":
+        elif self.prediction_mode == "cls_token": # cls_token only takes the class token, which is the first patch
             features = features[:, 0]
-        elif self.prediction_mode == "lin_softmax":
+        elif self.prediction_mode == "lin_softmax": # lin softmax is a bit more complex and not considered in this work 
             dtype = features.dtype
             features = F.logsigmoid(features.float())
             features = torch.logsumexp(features + features, dim=1) - torch.logsumexp(features + 1e-6, dim=1)

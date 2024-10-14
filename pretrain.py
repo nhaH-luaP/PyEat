@@ -1,6 +1,6 @@
 from model.eat_pretrain import EATPretrain
 from model.data2vecmultimodel import Data2VecMultiModel
-from utils import seed_everything, MetricsCallback, MetricLogger
+from utils.utils import seed_everything, MetricsCallback, MetricLogger
 
 import hydra
 import os
@@ -40,7 +40,7 @@ def main(args):
             task=args.task,
             classlimit=500,
             eventlimit=5,
-            sampling_rate=32000,
+            sampling_rate=32000
         ),
         loaders=LoadersConfig(train=LoaderConfig(batch_size=args.pretrain.batch_size))
     )

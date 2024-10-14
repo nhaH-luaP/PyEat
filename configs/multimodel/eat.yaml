@@ -47,8 +47,6 @@ ema_encoder_only: True
 
 max_update: 200
 
-shared_decoder: null
-
 min_target_var: 0.1
 min_pred_var: 0.01
 

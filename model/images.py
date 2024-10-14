@@ -8,8 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
-from functools import partial
-from typing import Callable, Dict, Optional
+from typing import Callable, Optional
 from timm.models.layers import to_2tuple
 
 from .mae import get_2d_sincos_pos_embed_flexible, PatchEmbed_new
@@ -23,8 +22,6 @@ from .modules import (
     BlockEncoder,
     Decoder2d,
     FixedPositionalEncoder,
-    TransformerDecoder,
-    EncDecTransformerDecoder,
 )
 
 
@@ -39,19 +36,13 @@ class ImageEncoder(ModalitySpecificEncoder):
         layer_norm_first: bool
     ):
         
-        if modality_cfg.in_chans == 1 :  
-            img_size = (modality_cfg.target_length,modality_cfg.target_height)
-        else:
-            img_size =  to_2tuple(modality_cfg.input_size)
-
+        img_size = (modality_cfg.target_length,modality_cfg.target_height)
         patch_size = to_2tuple(modality_cfg.patch_size)
-        num_patches = (img_size[1] // patch_size[1]) * (img_size[0] // patch_size[0])  # number of patch -> 512
-        self.H = img_size[0] // patch_size[0]  # 64
-        self.W = img_size[1] // patch_size[1]  # 8
+        num_patches = (img_size[1] // patch_size[1]) * (img_size[0] // patch_size[0])
+        self.H = img_size[0] // patch_size[0]
+        self.W = img_size[1] // patch_size[1]
         self.hw = (self.H,self.W)
 
-        # (B,512,768)
-        # note: we fix the variable length sequence problem here -> not limited to fixed length data
         local_encoder = PatchEmbed_new(
             img_size,
             modality_cfg.patch_size,
@@ -104,26 +95,9 @@ class ImageEncoder(ModalitySpecificEncoder):
             modality_cfg.prenet_dropout,
         )
 
-        # EAT utilize the CNN decoder
-        if modality_cfg.transformer_decoder:
-            if modality_cfg.enc_dec_transformer:
-                decoder = EncDecTransformerDecoder(modality_cfg, embed_dim)
-            else:
-                dec_enc = BlockEncoder(
-                    nn.ModuleList(
-                        make_block(0, modality_cfg.decoder_dim, 8)
-                        for _ in range(modality_cfg.decoder_layers)
-                    ),
-                    None,
-                    layer_norm_first,
-                    0,
-                    0,
-                )
-                decoder = TransformerDecoder(modality_cfg, embed_dim, dec_enc)
-        else:
-            decoder = (
-                Decoder2d(modality_cfg.decoder, embed_dim, self.H, self.W)
-            )
+        decoder = (
+            Decoder2d(modality_cfg.decoder, embed_dim, self.H, self.W)
+        )
 
         super().__init__(
             modality_cfg=modality_cfg,

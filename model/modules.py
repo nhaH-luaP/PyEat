@@ -199,30 +199,6 @@ class Decoder2d(DecoderBase):
         return x
 
 
-class TransformerDecoder(nn.Module):
-    def __init__(self, cfg, input_dim, encoder):
-        super().__init__()
-
-        self.decoder_cfg = cfg
-
-        self.input_proj = nn.Linear(input_dim, cfg.decoder_dim)
-
-        self.encoder = encoder
-
-        self.proj = nn.Linear(cfg.decoder_dim, input_dim)
-
-    def reset_parameters(self):
-        from .fairseq.transformer_sentence_encoder import init_bert_params
-
-        self.apply(init_bert_params)
-
-    def forward(self, x, mask_info):
-        x = self.input_proj(x)
-        x = self.encoder(x, None, None, 1)
-        x = self.proj(x)
-        return x
-
-
 class AltBlock(nn.Module):
     def __init__(
         self,
@@ -500,50 +476,4 @@ class EncDecBlock(nn.Module):
             x = self.mlp(x)
             x = self.norm2(r + self.drop_path(self.post_mlp_dropout(x)))
 
-        return x
-
-
-class EncDecTransformerDecoder(nn.Module):
-    def __init__(self, cfg, input_dim):
-        super().__init__()
-
-        self.input_proj = nn.Linear(input_dim, cfg.decoder_dim)
-
-        self.blocks = nn.Sequential(
-            *[
-                EncDecBlock(
-                    q_dim=cfg.decoder_dim,
-                    kv_dim=input_dim,
-                    num_heads=8,
-                    mlp_ratio=4.0,
-                    qkv_bias=True,
-                    qk_scale=None,
-                    drop=0.0,
-                    attn_drop=0.0,
-                    mlp_drop=0.0,
-                    post_mlp_drop=0.0,
-                    drop_path=0.0,
-                    act_layer=nn.GELU,
-                    norm_layer=nn.LayerNorm,
-                    layer_norm_first=False,
-                    cosine_attention=False,
-                    first_residual=i > 0,
-                )
-                for i in range(cfg.decoder_layers)
-            ]
-        )
-
-        self.proj = nn.Linear(cfg.decoder_dim, input_dim)
-
-    def reset_parameters(self):
-        from .fairseq.transformer_sentence_encoder import init_bert_params
-
-        self.apply(init_bert_params)
-
-    def forward(self, x, kv):
-        x = self.input_proj(x)
-        for i, layer in enumerate(self.blocks):
-            x = layer(x, kv)
-
-        x = self.proj(x)
         return x

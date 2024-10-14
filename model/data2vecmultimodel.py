@@ -119,13 +119,6 @@ class Data2VecMultiModel(nn.Module):
         # make teacher model
         if not skip_ema:
             self.ema = self.make_ema_teacher(cfg.ema_decay, cfg)
-            self.shared_decoder = (
-                Decoder1d(self.args.modality.decoder, cfg.embed_dim)
-                if self.cfg.shared_decoder is not None
-                else None
-            )
-            if self.shared_decoder is not None:
-                self.shared_decoder.apply(self._init_weights)
 
             self.recon_proj = None
             if cfg.recon_loss > 0:
